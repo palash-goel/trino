@@ -271,8 +271,8 @@ public class TupleDomainOrcPredicate
                     type,
                     hasNullValue,
                     columnStatistics.getTimestampStatistics(),
-                    min -> new LongTimestamp(min * MICROSECONDS_PER_MILLISECOND, 0),
-                    max -> new LongTimestamp((max + 1) * MICROSECONDS_PER_MILLISECOND, 0));
+                    min -> new LongTimestamp(min * MICROSECONDS_PER_MILLISECOND, 0, sessionTimeZoneKey),
+                    max -> new LongTimestamp((max + 1) * MICROSECONDS_PER_MILLISECOND, 0, sessionTimeZoneKey));
         }
         else if (type.equals(TIMESTAMP_TZ_MILLIS) && columnStatistics.getTimestampStatistics() != null) {
             return createDomain(type, hasNullValue, columnStatistics.getTimestampStatistics(), value -> packDateTimeWithZone(value, UTC_KEY));

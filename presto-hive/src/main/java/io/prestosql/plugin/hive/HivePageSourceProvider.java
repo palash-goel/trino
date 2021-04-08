@@ -35,6 +35,7 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
 
@@ -63,6 +64,7 @@ public class HivePageSourceProvider
         implements ConnectorPageSourceProvider
 {
     private final TypeManager typeManager;
+    private final DateTimeZone hiveStorageTimeZone;
     private final HdfsEnvironment hdfsEnvironment;
     private final Set<HivePageSourceFactory> pageSourceFactories;
     private final Set<HiveRecordCursorProvider> cursorProviders;
@@ -70,12 +72,14 @@ public class HivePageSourceProvider
     @Inject
     public HivePageSourceProvider(
             TypeManager typeManager,
+            HiveConfig hiveConfig,
             HdfsEnvironment hdfsEnvironment,
             Set<HivePageSourceFactory> pageSourceFactories,
             Set<HiveRecordCursorProvider> cursorProviders,
             GenericHiveRecordCursorProvider genericCursorProvider)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.hiveStorageTimeZone = requireNonNull(hiveConfig, "hiveConfig is null").getDateTimeZone();
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.pageSourceFactories = ImmutableSet.copyOf(requireNonNull(pageSourceFactories, "pageSourceFactories is null"));
         this.cursorProviders = ImmutableSet.<HiveRecordCursorProvider>builder()
@@ -107,13 +111,14 @@ public class HivePageSourceProvider
                 hiveSplit.getBucketNumber(),
                 hiveSplit.getStart(),
                 hiveSplit.getLength(),
-                hiveSplit.getEstimatedFileSize(),
+                hiveSplit.getFileSize(),
                 hiveSplit.getFileModifiedTime(),
                 hiveSplit.getSchema(),
                 hiveTable.getCompactEffectivePredicate().intersect(dynamicFilter.transform(HiveColumnHandle.class::cast).simplify()),
                 hiveColumns,
                 hiveSplit.getPartitionName(),
                 hiveSplit.getPartitionKeys(),
+                hiveStorageTimeZone,
                 typeManager,
                 hiveSplit.getTableToPartitionMapping(),
                 hiveSplit.getBucketConversion(),
@@ -134,13 +139,14 @@ public class HivePageSourceProvider
             OptionalInt bucketNumber,
             long start,
             long length,
-            long estimatedFileSize,
+            long fileSize,
             long fileModifiedTime,
             Properties schema,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             List<HiveColumnHandle> columns,
             String partitionName,
             List<HivePartitionKey> partitionKeys,
+            DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager,
             TableToPartitionMapping tableToPartitionMapping,
             Optional<BucketConversion> bucketConversion,
@@ -159,8 +165,9 @@ public class HivePageSourceProvider
                 tableToPartitionMapping,
                 path,
                 bucketNumber,
-                estimatedFileSize,
-                fileModifiedTime);
+                fileSize,
+                fileModifiedTime,
+                hiveStorageTimeZone);
         List<ColumnMapping> regularAndInterimColumnMappings = ColumnMapping.extractRegularAndInterimColumnMappings(columnMappings);
 
         Optional<BucketAdaptation> bucketAdaptation = createBucketAdaptation(bucketConversion, bucketNumber, regularAndInterimColumnMappings);
@@ -174,10 +181,11 @@ public class HivePageSourceProvider
                     path,
                     start,
                     length,
-                    estimatedFileSize,
+                    fileSize,
                     schema,
                     desiredColumns,
                     effectivePredicate,
+                    hiveStorageTimeZone,
                     acidInfo);
 
             if (readerWithProjections.isPresent()) {
@@ -193,6 +201,7 @@ public class HivePageSourceProvider
                         columnMappings,
                         bucketAdaptation,
                         adapter,
+                        hiveStorageTimeZone,
                         typeManager,
                         pageSource));
             }
@@ -209,10 +218,11 @@ public class HivePageSourceProvider
                     path,
                     start,
                     length,
-                    estimatedFileSize,
+                    fileSize,
                     schema,
                     desiredColumns,
                     effectivePredicate,
+                    hiveStorageTimeZone,
                     typeManager,
                     s3SelectPushdownEnabled);
 
@@ -244,7 +254,10 @@ public class HivePageSourceProvider
                     delegate = new HiveCoercionRecordCursor(regularAndInterimColumnMappings, typeManager, delegate);
                 }
 
-                HiveRecordCursor hiveRecordCursor = new HiveRecordCursor(columnMappings, delegate);
+                HiveRecordCursor hiveRecordCursor = new HiveRecordCursor(
+                        columnMappings,
+                        hiveStorageTimeZone,
+                        delegate);
                 List<Type> columnTypes = columns.stream()
                         .map(HiveColumnHandle::getType)
                         .collect(toList());
@@ -341,8 +354,9 @@ public class HivePageSourceProvider
                 TableToPartitionMapping tableToPartitionMapping,
                 Path path,
                 OptionalInt bucketNumber,
-                long estimatedFileSize,
-                long fileModifiedTime)
+                long fileSize,
+                long fileModifiedTime,
+                DateTimeZone hiveStorageTimeZone)
         {
             Map<String, HivePartitionKey> partitionKeysByName = uniqueIndex(partitionKeys, HivePartitionKey::getName);
 
@@ -362,7 +376,7 @@ public class HivePageSourceProvider
                     }
 
                     checkArgument(
-                            projectionsForColumn.computeIfAbsent(column.getBaseHiveColumnIndex(), columnIndex -> new HashSet<>()).add(column.getHiveColumnProjectionInfo()),
+                            projectionsForColumn.computeIfAbsent(column.getBaseHiveColumnIndex(), HashSet::new).add(column.getHiveColumnProjectionInfo()),
                             "duplicate column in columns list");
 
                     // Add regular mapping if projection is valid for partition schema, otherwise add an empty mapping
@@ -378,7 +392,7 @@ public class HivePageSourceProvider
                 else {
                     columnMappings.add(prefilled(
                             column,
-                            getPrefilledColumnValue(column, partitionKeysByName.get(column.getName()), path, bucketNumber, estimatedFileSize, fileModifiedTime, partitionName),
+                            getPrefilledColumnValue(column, partitionKeysByName.get(column.getName()), path, bucketNumber, fileSize, fileModifiedTime, hiveStorageTimeZone, partitionName),
                             baseTypeCoercionFrom));
                 }
             }

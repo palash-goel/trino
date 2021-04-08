@@ -31,7 +31,6 @@ import io.prestosql.plugin.hive.FileFormatDataSourceStats;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HiveColumnProjectionInfo;
-import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.HivePageSourceFactory;
 import io.prestosql.plugin.hive.ReaderProjections;
 import io.prestosql.plugin.hive.orc.OrcPageSource.ColumnAdaptation;
@@ -114,24 +113,21 @@ public class OrcPageSourceFactory
     private final OrcReaderOptions orcReaderOptions;
     private final HdfsEnvironment hdfsEnvironment;
     private final FileFormatDataSourceStats stats;
-    private final DateTimeZone legacyTimeZone;
 
     @Inject
-    public OrcPageSourceFactory(OrcReaderConfig config, HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats, HiveConfig hiveConfig)
+    public OrcPageSourceFactory(OrcReaderConfig config, HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats)
     {
-        this(config.toOrcReaderOptions(), hdfsEnvironment, stats, requireNonNull(hiveConfig, "hiveConfig is null").getOrcLegacyDateTimeZone());
+        this(config.toOrcReaderOptions(), hdfsEnvironment, stats);
     }
 
     public OrcPageSourceFactory(
             OrcReaderOptions orcReaderOptions,
             HdfsEnvironment hdfsEnvironment,
-            FileFormatDataSourceStats stats,
-            DateTimeZone legacyTimeZone)
+            FileFormatDataSourceStats stats)
     {
         this.orcReaderOptions = requireNonNull(orcReaderOptions, "orcReaderOptions is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.stats = requireNonNull(stats, "stats is null");
-        this.legacyTimeZone = legacyTimeZone;
     }
 
     @Override
@@ -145,6 +141,7 @@ public class OrcPageSourceFactory
             Properties schema,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
+            DateTimeZone hiveStorageTimeZone,
             Optional<AcidInfo> acidInfo)
     {
         if (!isDeserializerClass(schema, OrcSerde.class)) {
@@ -174,7 +171,7 @@ public class OrcPageSourceFactory
                 isUseOrcColumnNames(session),
                 isFullAcidTable(Maps.fromProperties(schema)),
                 effectivePredicate,
-                legacyTimeZone,
+                hiveStorageTimeZone,
                 orcReaderOptions
                         .withMaxMergeDistance(getOrcMaxMergeDistance(session))
                         .withMaxBufferSize(getOrcMaxBufferSize(session))
@@ -203,7 +200,7 @@ public class OrcPageSourceFactory
             boolean useOrcColumnNames,
             boolean isFullAcid,
             TupleDomain<HiveColumnHandle> effectivePredicate,
-            DateTimeZone legacyFileTimeZone,
+            DateTimeZone hiveStorageTimeZone,
             OrcReaderOptions options,
             Optional<AcidInfo> acidInfo,
             FileFormatDataSourceStats stats)
@@ -345,7 +342,7 @@ public class OrcPageSourceFactory
                     predicateBuilder.build(),
                     start,
                     length,
-                    legacyFileTimeZone,
+                    hiveStorageTimeZone,
                     systemMemoryUsage,
                     INITIAL_BATCH_SIZE,
                     exception -> handleException(orcDataSource.getId(), exception));

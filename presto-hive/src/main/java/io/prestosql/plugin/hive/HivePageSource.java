@@ -98,7 +98,7 @@ import static io.prestosql.spi.block.ColumnarMap.toColumnarMap;
 import static io.prestosql.spi.block.ColumnarRow.toColumnarRow;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.prestosql.spi.type.Chars.isCharType;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.Decimals.isLongDecimal;
 import static io.prestosql.spi.type.Decimals.isShortDecimal;
@@ -107,6 +107,7 @@ import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.prestosql.spi.type.TimestampWithTimeZoneParametricType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static java.lang.String.format;
@@ -129,10 +130,12 @@ public class HivePageSource
             List<ColumnMapping> columnMappings,
             Optional<BucketAdaptation> bucketAdaptation,
             Optional<ReaderProjectionsAdapter> projectionsAdapter,
+            DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager,
             ConnectorPageSource delegate)
     {
         requireNonNull(columnMappings, "columnMappings is null");
+        requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
         requireNonNull(typeManager, "typeManager is null");
 
         this.delegate = requireNonNull(delegate, "delegate is null");
@@ -213,12 +216,8 @@ public class HivePageSource
                 else if (type.equals(DATE)) {
                     prefilledValue = datePartitionKey(columnValue, name);
                 }
-                else if (type.equals(TIMESTAMP_MILLIS)) {
-                    prefilledValue = timestampPartitionKey(columnValue, name);
-                }
-                else if (type.equals(TIMESTAMP_TZ_MILLIS)) {
-                    // used for $file_modified_time
-                    prefilledValue = packDateTimeWithZone(timestampPartitionKey(columnValue, name), DateTimeZone.getDefault().getID());
+                else if (type.equals(TIMESTAMP_MILLIS) || type.equals(TIMESTAMP_WITH_TIME_ZONE)) {
+                    prefilledValue = timestampPartitionKey(columnValue, hiveStorageTimeZone, name, type.equals(TIMESTAMP_TZ_MILLIS));
                 }
                 else if (isShortDecimal(type)) {
                     prefilledValue = shortDecimalPartitionKey(columnValue, (DecimalType) type, name);

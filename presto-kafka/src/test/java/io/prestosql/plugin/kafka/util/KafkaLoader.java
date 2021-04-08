@@ -36,7 +36,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.operator.scalar.timestamp.VarcharToTimestampCast.castToShortTimestamp;
+import static io.prestosql.operator.scalar.timestamp.VarcharToTimestampCast.castToLegacyShortTimestamp;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
@@ -146,7 +146,7 @@ public class KafkaLoader
                 return ISO8601_FORMATTER.print(parseLegacyTime(timeZoneKey, (String) value));
             }
             if (TIMESTAMP_MILLIS.equals(type)) {
-                return ISO8601_FORMATTER.print(castToShortTimestamp(TIMESTAMP_MILLIS.getPrecision(), (String) value));
+                return ISO8601_FORMATTER.print(castToLegacyShortTimestamp(TIMESTAMP_MILLIS.getPrecision(), timeZoneKey, (String) value));
             }
             if (TIME_WITH_TIME_ZONE.equals(type) || TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
                 return ISO8601_FORMATTER.print(unpackMillisUtc(convertToTimestampWithTimeZone(timeZoneKey, (String) value)));

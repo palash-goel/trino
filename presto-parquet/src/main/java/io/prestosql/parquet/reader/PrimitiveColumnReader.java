@@ -34,7 +34,6 @@ import org.apache.parquet.column.values.ValuesReader;
 import org.apache.parquet.column.values.rle.RunLengthBitPackingHybridDecoder;
 import org.apache.parquet.io.ParquetDecodingException;
 import org.apache.parquet.schema.OriginalType;
-import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
 import java.util.Optional;
@@ -78,7 +77,7 @@ public abstract class PrimitiveColumnReader
         return ParquetTypeUtils.isValueNull(columnDescriptor.isRequired(), definitionLevel, columnDescriptor.getMaxDefinitionLevel());
     }
 
-    public static PrimitiveColumnReader createReader(RichColumnDescriptor descriptor, DateTimeZone timeZone)
+    public static PrimitiveColumnReader createReader(RichColumnDescriptor descriptor)
     {
         switch (descriptor.getPrimitiveType().getPrimitiveTypeName()) {
             case BOOLEAN:
@@ -97,7 +96,7 @@ public abstract class PrimitiveColumnReader
                 }
                 return createDecimalColumnReader(descriptor).orElse(new LongColumnReader(descriptor));
             case INT96:
-                return new TimestampColumnReader(descriptor, timeZone);
+                return new TimestampColumnReader(descriptor);
             case FLOAT:
                 return new FloatColumnReader(descriptor);
             case DOUBLE:

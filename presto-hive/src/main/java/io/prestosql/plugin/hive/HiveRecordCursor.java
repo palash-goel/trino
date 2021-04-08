@@ -46,7 +46,7 @@ import static io.prestosql.plugin.hive.util.HiveUtil.varcharPartitionKey;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.prestosql.spi.type.Chars.isCharType;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.Decimals.isLongDecimal;
 import static io.prestosql.spi.type.Decimals.isShortDecimal;
@@ -76,9 +76,13 @@ public class HiveRecordCursor
     private final Object[] objects;
     private final boolean[] nulls;
 
-    public HiveRecordCursor(List<ColumnMapping> columnMappings, RecordCursor delegate)
+    public HiveRecordCursor(
+            List<ColumnMapping> columnMappings,
+            DateTimeZone hiveStorageTimeZone,
+            RecordCursor delegate)
     {
         requireNonNull(columnMappings, "columns is null");
+        requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
 
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.columnMappings = columnMappings;
@@ -142,11 +146,10 @@ public class HiveRecordCursor
                     longs[columnIndex] = datePartitionKey(columnValue, name);
                 }
                 else if (TIMESTAMP_MILLIS.equals(type)) {
-                    longs[columnIndex] = timestampPartitionKey(columnValue, name);
+                    longs[columnIndex] = timestampPartitionKey(columnValue, hiveStorageTimeZone, name, false);
                 }
                 else if (TIMESTAMP_TZ_MILLIS.equals(type)) {
-                    // used for $file_modified_time
-                    longs[columnIndex] = packDateTimeWithZone(timestampPartitionKey(columnValue, name), DateTimeZone.getDefault().getID());
+                    longs[columnIndex] = timestampPartitionKey(columnValue, hiveStorageTimeZone, name, true);
                 }
                 else if (isShortDecimal(type)) {
                     longs[columnIndex] = shortDecimalPartitionKey(columnValue, (DecimalType) type, name);

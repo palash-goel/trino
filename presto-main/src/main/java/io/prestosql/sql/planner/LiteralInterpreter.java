@@ -52,6 +52,7 @@ import static io.prestosql.spi.StandardErrorCode.TYPE_NOT_FOUND;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.prestosql.type.DateTimes.parseLegacyTimestamp;
 import static io.prestosql.type.DateTimes.parseTime;
 import static io.prestosql.type.DateTimes.parseTimeWithTimeZone;
 import static io.prestosql.type.DateTimes.parseTimestamp;
@@ -182,6 +183,9 @@ public final class LiteralInterpreter
 
             if (type instanceof TimestampType) {
                 int precision = ((TimestampType) type).getPrecision();
+                if (session.isLegacyTimestamp()) {
+                    return parseLegacyTimestamp(precision, session.getTimeZoneKey(), node.getValue());
+                }
                 return parseTimestamp(precision, node.getValue());
             }
             else if (type instanceof TimestampWithTimeZoneType) {

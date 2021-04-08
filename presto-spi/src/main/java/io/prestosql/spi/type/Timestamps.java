@@ -19,10 +19,8 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 
 import static io.prestosql.spi.type.TimestampType.MAX_PRECISION;
-import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.lang.String.format;
-import static java.time.ZoneOffset.UTC;
 
 public class Timestamps
 {
@@ -65,7 +63,6 @@ public class Timestamps
     public static final long PICOSECONDS_PER_DAY = PICOSECONDS_PER_HOUR * 24;
     public static final long SECONDS_PER_MINUTE = 60;
     public static final long MINUTES_PER_HOUR = 60;
-    public static final long SECONDS_PER_DAY = SECONDS_PER_MINUTE * MINUTES_PER_HOUR * 24;
 
     private Timestamps() {}
 
@@ -111,21 +108,11 @@ public class Timestamps
         return (value + 1 - (factor / 2)) / factor;
     }
 
-    public static long truncateEpochMicrosToMillis(long epochMicros)
+    static String formatTimestamp(int precision, long epochMicros, int picosOfMicro, ZoneId zoneId)
     {
-        return floorDiv(epochMicros, MICROSECONDS_PER_MILLISECOND) * MICROSECONDS_PER_MILLISECOND;
-    }
-
-    public static long epochMicrosToMillisWithRounding(long epochMicros)
-    {
-        return roundDiv(epochMicros, MICROSECONDS_PER_MILLISECOND);
-    }
-
-    static String formatTimestamp(int precision, long epochMicros, int picosOfMicro)
-    {
-        Instant instant = Instant.ofEpochSecond(floorDiv(epochMicros, MICROSECONDS_PER_SECOND));
+        Instant instant = Instant.ofEpochSecond(Math.floorDiv(epochMicros, MICROSECONDS_PER_SECOND));
         long picoFraction = ((long) floorMod(epochMicros, MICROSECONDS_PER_SECOND)) * PICOSECONDS_PER_MICROSECOND + picosOfMicro;
-        LocalDateTime dateTime = LocalDateTime.ofInstant(instant, UTC);
+        LocalDateTime dateTime = LocalDateTime.ofInstant(instant, zoneId);
 
         return formatTimestamp(precision, dateTime, picoFraction).toString();
     }

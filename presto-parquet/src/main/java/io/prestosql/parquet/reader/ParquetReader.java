@@ -44,7 +44,6 @@ import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
 import org.apache.parquet.hadoop.metadata.ColumnPath;
 import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.io.PrimitiveColumnIO;
-import org.joda.time.DateTimeZone;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -73,7 +72,6 @@ public class ParquetReader
     private final List<BlockMetaData> blocks;
     private final List<PrimitiveColumnIO> columns;
     private final ParquetDataSource dataSource;
-    private final DateTimeZone timeZone;
     private final AggregatedMemoryContext systemMemoryContext;
 
     private int currentRowGroup = -1;
@@ -96,7 +94,6 @@ public class ParquetReader
             MessageColumnIO messageColumnIO,
             List<BlockMetaData> blocks,
             ParquetDataSource dataSource,
-            DateTimeZone timeZone,
             AggregatedMemoryContext systemMemoryContext,
             ParquetReaderOptions options)
             throws IOException
@@ -105,7 +102,6 @@ public class ParquetReader
         this.columns = requireNonNull(messageColumnIO, "messageColumnIO is null").getLeaves();
         this.blocks = requireNonNull(blocks, "blocks is null");
         this.dataSource = requireNonNull(dataSource, "dataSource is null");
-        this.timeZone = requireNonNull(timeZone, "timeZone is null");
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
         this.currentRowGroupMemoryContext = systemMemoryContext.newAggregatedMemoryContext();
         this.options = requireNonNull(options, "options is null");
@@ -287,7 +283,7 @@ public class ParquetReader
     {
         for (PrimitiveColumnIO columnIO : columns) {
             RichColumnDescriptor column = new RichColumnDescriptor(columnIO.getColumnDescriptor(), columnIO.getType().asPrimitiveType());
-            columnReaders[columnIO.getId()] = PrimitiveColumnReader.createReader(column, timeZone);
+            columnReaders[columnIO.getId()] = PrimitiveColumnReader.createReader(column);
         }
     }
 

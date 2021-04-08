@@ -17,13 +17,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import io.prestosql.Session;
+import io.prestosql.SystemSessionProperties;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.spi.type.DecimalParseResult;
 import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.RowType.Field;
-import io.prestosql.spi.type.TimeWithTimeZoneType;
+import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
@@ -115,6 +116,7 @@ import static io.prestosql.sql.relational.SpecialForm.Form.OR;
 import static io.prestosql.sql.relational.SpecialForm.Form.ROW_CONSTRUCTOR;
 import static io.prestosql.sql.relational.SpecialForm.Form.SWITCH;
 import static io.prestosql.sql.relational.SpecialForm.Form.WHEN;
+import static io.prestosql.type.DateTimes.parseLegacyTimestamp;
 import static io.prestosql.type.DateTimes.parseTime;
 import static io.prestosql.type.DateTimes.parseTimeWithTimeZone;
 import static io.prestosql.type.DateTimes.parseTimestamp;
@@ -136,7 +138,12 @@ public final class SqlToRowExpressionTranslator
             Session session,
             boolean optimize)
     {
-        Visitor visitor = new Visitor(metadata, types, layout);
+        Visitor visitor = new Visitor(
+                metadata,
+                types,
+                layout,
+                session.getTimeZoneKey(),
+                SystemSessionProperties.isLegacyTimestamp(session));
         RowExpression result = visitor.process(expression, null);
 
         requireNonNull(result, "translated expression is null");
@@ -155,16 +162,22 @@ public final class SqlToRowExpressionTranslator
         private final Metadata metadata;
         private final Map<NodeRef<Expression>, Type> types;
         private final Map<Symbol, Integer> layout;
+        private final TimeZoneKey timeZoneKey;
+        private final boolean isLegacyTimestamp;
         private final StandardFunctionResolution standardFunctionResolution;
 
         private Visitor(
                 Metadata metadata,
                 Map<NodeRef<Expression>, Type> types,
-                Map<Symbol, Integer> layout)
+                Map<Symbol, Integer> layout,
+                TimeZoneKey timeZoneKey,
+                boolean isLegacyTimestamp)
         {
             this.metadata = metadata;
             this.types = ImmutableMap.copyOf(requireNonNull(types, "types is null"));
             this.layout = layout;
+            this.timeZoneKey = timeZoneKey;
+            this.isLegacyTimestamp = isLegacyTimestamp;
             standardFunctionResolution = new StandardFunctionResolution(metadata);
         }
 
@@ -275,7 +288,12 @@ public final class SqlToRowExpressionTranslator
             Object value;
             if (type instanceof TimestampType) {
                 int precision = ((TimestampType) type).getPrecision();
-                value = parseTimestamp(precision, node.getValue());
+                if (isLegacyTimestamp) {
+                    value = parseLegacyTimestamp(precision, timeZoneKey, node.getValue());
+                }
+                else {
+                    value = parseTimestamp(precision, node.getValue());
+                }
             }
             else if (type instanceof TimestampWithTimeZoneType) {
                 int precision = ((TimestampWithTimeZoneType) type).getPrecision();

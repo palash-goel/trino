@@ -39,6 +39,7 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.PageBuilderStatus;
 import io.prestosql.spi.connector.ConnectorPageSource;
+import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.StandardTypes;
@@ -89,6 +90,7 @@ public class ScanQueryPageSource
 
     public ScanQueryPageSource(
             ElasticsearchClient client,
+            ConnectorSession session,
             ElasticsearchTableHandle table,
             ElasticsearchSplit split,
             List<ElasticsearchColumnHandle> columns)
@@ -98,7 +100,7 @@ public class ScanQueryPageSource
 
         this.columns = ImmutableList.copyOf(columns);
 
-        decoders = createDecoders(columns);
+        decoders = createDecoders(session, columns);
 
         // When the _source field is requested, we need to bypass column pruning when fetching the document
         boolean needAllFields = columns.stream()
@@ -136,7 +138,7 @@ public class ScanQueryPageSource
         SearchResponse searchResponse = client.beginSearch(
                 split.getIndex(),
                 split.getShard(),
-                buildSearchQuery(table.getConstraint().transform(ElasticsearchColumnHandle.class::cast), table.getQuery()),
+                buildSearchQuery(session, table.getConstraint().transform(ElasticsearchColumnHandle.class::cast), table.getQuery()),
                 needAllFields ? Optional.empty() : Optional.of(requiredFields),
                 documentFields,
                 sort,
@@ -250,7 +252,7 @@ public class ScanQueryPageSource
         }
     }
 
-    private List<Decoder> createDecoders(List<ElasticsearchColumnHandle> columns)
+    private List<Decoder> createDecoders(ConnectorSession session, List<ElasticsearchColumnHandle> columns)
     {
         return columns.stream()
                 .map(column -> {
@@ -266,12 +268,12 @@ public class ScanQueryPageSource
                         return new SourceColumnDecoder();
                     }
 
-                    return createDecoder(column.getName(), column.getType());
+                    return createDecoder(session, column.getName(), column.getType());
                 })
                 .collect(toImmutableList());
     }
 
-    private Decoder createDecoder(String path, Type type)
+    private Decoder createDecoder(ConnectorSession session, String path, Type type)
     {
         if (type.equals(VARCHAR)) {
             return new VarcharDecoder(path);
@@ -280,7 +282,7 @@ public class ScanQueryPageSource
             return new VarbinaryDecoder(path);
         }
         if (type.equals(TIMESTAMP_MILLIS)) {
-            return new TimestampDecoder(path);
+            return new TimestampDecoder(session, path);
         }
         if (type.equals(BOOLEAN)) {
             return new BooleanDecoder(path);
@@ -310,7 +312,7 @@ public class ScanQueryPageSource
             RowType rowType = (RowType) type;
 
             List<Decoder> decoders = rowType.getFields().stream()
-                    .map(field -> createDecoder(appendPath(path, field.getName().get()), field.getType()))
+                    .map(field -> createDecoder(session, appendPath(path, field.getName().get()), field.getType()))
                     .collect(toImmutableList());
 
             List<String> fieldNames = rowType.getFields().stream()
@@ -323,7 +325,7 @@ public class ScanQueryPageSource
         if (type instanceof ArrayType) {
             Type elementType = ((ArrayType) type).getElementType();
 
-            return new ArrayDecoder(path, createDecoder(path, elementType));
+            return new ArrayDecoder(path, createDecoder(session, path, elementType));
         }
 
         throw new UnsupportedOperationException("Type not supported: " + type);

@@ -33,6 +33,9 @@ import io.prestosql.spi.predicate.NullableValue;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
 import org.apache.hadoop.hive.common.FileUtils;
+import org.joda.time.DateTimeZone;
+import org.joda.time.format.DateTimeFormatter;
+import org.joda.time.format.ISODateTimeFormat;
 
 import javax.inject.Inject;
 
@@ -52,10 +55,14 @@ import static io.prestosql.plugin.hive.util.HiveBucketing.getHiveBucketFilter;
 import static io.prestosql.plugin.hive.util.HiveUtil.parsePartitionValue;
 import static io.prestosql.spi.predicate.TupleDomain.none;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 public class HivePartitionManager
 {
+    private static final String PARTITION_VALUE_WILDCARD = "";
+
+    private final DateTimeZone timeZone;
     private final int maxPartitions;
     private final int domainCompactionThreshold;
 
@@ -63,14 +70,17 @@ public class HivePartitionManager
     public HivePartitionManager(HiveConfig hiveConfig)
     {
         this(
+                hiveConfig.getDateTimeZone(),
                 hiveConfig.getMaxPartitionsPerScan(),
                 hiveConfig.getDomainCompactionThreshold());
     }
 
     public HivePartitionManager(
+            DateTimeZone timeZone,
             int maxPartitions,
             int domainCompactionThreshold)
     {
+        this.timeZone = requireNonNull(timeZone, "timeZone is null");
         checkArgument(maxPartitions >= 1, "maxPartitions must be at least 1");
         this.maxPartitions = maxPartitions;
         checkArgument(domainCompactionThreshold >= 1, "domainCompactionThreshold must be at least 1");
@@ -212,7 +222,7 @@ public class HivePartitionManager
             TupleDomain<ColumnHandle> constraintSummary,
             Predicate<Map<ColumnHandle, NullableValue>> constraint)
     {
-        HivePartition partition = parsePartition(tableName, partitionId, partitionColumns, partitionColumnTypes);
+        HivePartition partition = parsePartition(tableName, partitionId, partitionColumns, partitionColumnTypes, timeZone);
 
         if (partitionMatches(partitionColumns, constraintSummary, constraint, partition)) {
             return Optional.of(partition);
@@ -256,13 +266,14 @@ public class HivePartitionManager
             SchemaTableName tableName,
             String partitionName,
             List<HiveColumnHandle> partitionColumns,
-            List<Type> partitionColumnTypes)
+            List<Type> partitionColumnTypes,
+            DateTimeZone timeZone)
     {
         List<String> partitionValues = extractPartitionValues(partitionName);
         ImmutableMap.Builder<ColumnHandle, NullableValue> builder = ImmutableMap.builder();
         for (int i = 0; i < partitionColumns.size(); i++) {
             HiveColumnHandle column = partitionColumns.get(i);
-            NullableValue parsedValue = parsePartitionValue(partitionName, partitionValues.get(i), partitionColumnTypes.get(i));
+            NullableValue parsedValue = parsePartitionValue(partitionName, partitionValues.get(i), partitionColumnTypes.get(i), timeZone);
             builder.put(column, parsedValue);
         }
         Map<ColumnHandle, NullableValue> values = builder.build();

@@ -15,6 +15,8 @@ package io.prestosql.spi.type;
 
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
 import static org.testng.Assert.assertEquals;
 
 public class TestLongTimestamp
@@ -22,9 +24,9 @@ public class TestLongTimestamp
     @Test
     public void testToString()
     {
-        assertEquals(new LongTimestamp(1600960182536000L, 0).toString(), "2020-09-24 15:09:42.536000000000");
-        assertEquals(new LongTimestamp(1600960182536123L, 0).toString(), "2020-09-24 15:09:42.536123000000");
-        assertEquals(new LongTimestamp(1600960182536123L, 456000).toString(), "2020-09-24 15:09:42.536123456000");
-        assertEquals(new LongTimestamp(1600960182536123L, 456789).toString(), "2020-09-24 15:09:42.536123456789");
+        assertEquals(new LongTimestamp(1600960182536000L, 0, Optional.empty()).toString(), "2020-09-24 15:09:42.536000000000");
+        assertEquals(new LongTimestamp(1600960182536123L, 0, Optional.empty()).toString(), "2020-09-24 15:09:42.536123000000");
+        assertEquals(new LongTimestamp(1600960182536123L, 456000, Optional.empty()).toString(), "2020-09-24 15:09:42.536123456000");
+        assertEquals(new LongTimestamp(1600960182536123L, 456789, Optional.empty()).toString(), "2020-09-24 15:09:42.536123456789");
     }
 }

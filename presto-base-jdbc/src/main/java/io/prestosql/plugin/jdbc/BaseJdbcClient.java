@@ -341,7 +341,7 @@ public abstract class BaseJdbcClient
         if (mapping.isPresent()) {
             return mapping;
         }
-        Optional<ColumnMapping> connectorMapping = jdbcTypeToPrestoType(typeHandle);
+        Optional<ColumnMapping> connectorMapping = jdbcTypeToPrestoType(session, typeHandle);
         if (connectorMapping.isPresent()) {
             return connectorMapping;
         }

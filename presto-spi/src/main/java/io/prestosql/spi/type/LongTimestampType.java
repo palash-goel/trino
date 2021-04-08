@@ -20,6 +20,8 @@ import io.prestosql.spi.block.Int96ArrayBlockBuilder;
 import io.prestosql.spi.block.PageBuilderStatus;
 import io.prestosql.spi.connector.ConnectorSession;
 
+import java.util.Optional;
+
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static java.lang.String.format;
 
@@ -116,7 +118,7 @@ class LongTimestampType
     @Override
     public Object getObject(Block block, int position)
     {
-        return new LongTimestamp(getEpochMicros(block, position), getFraction(block, position));
+        return new LongTimestamp(getEpochMicros(block, position), getFraction(block, position), Optional.empty());
     }
 
     @Override
@@ -143,7 +145,12 @@ class LongTimestampType
         long epochMicros = getEpochMicros(block, position);
         int fraction = getFraction(block, position);
 
-        return SqlTimestamp.newInstance(getPrecision(), epochMicros, fraction);
+        if (session.isLegacyTimestamp()) {
+            return SqlTimestamp.newLegacyInstance(getPrecision(), epochMicros, fraction, session.getTimeZoneKey());
+        }
+        else {
+            return SqlTimestamp.newInstance(getPrecision(), epochMicros, fraction);
+        }
     }
 
     private static long getEpochMicros(Block block, int position)

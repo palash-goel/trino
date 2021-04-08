@@ -16,6 +16,7 @@ package io.prestosql.operator.scalar.timestamp;
 import io.airlift.slice.XxHash64;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.function.IsNull;
+import io.prestosql.spi.function.LiteralParameter;
 import io.prestosql.spi.function.LiteralParameters;
 import io.prestosql.spi.function.ScalarOperator;
 import io.prestosql.spi.function.SqlNullable;
@@ -46,6 +47,7 @@ import static io.prestosql.type.DateTimes.rescale;
 import static io.prestosql.type.DateTimes.round;
 import static io.prestosql.type.DateTimes.scaleEpochMicrosToMillis;
 import static io.prestosql.type.DateTimes.scaleEpochMillisToMicros;
+import static io.prestosql.util.DateTimeZoneIndex.getChronology;
 import static java.lang.Math.multiplyExact;
 
 @SuppressWarnings("UtilityClassWithoutPrivateConstructor")
@@ -226,11 +228,14 @@ public final class TimestampOperators
         @SqlType("timestamp(u)")
         @Constraint(variable = "u", expression = "max(3, p)") // Interval is currently p = 3, so the minimum result precision is 3.
         public static long add(
+                @LiteralParameter("p") long precision,
                 @SqlType("timestamp(p)") long timestamp,
                 @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
         {
-            // scale to micros
-            interval = multiplyExact(interval, MICROSECONDS_PER_MILLISECOND);
+            if (precision > 3) {
+                // scale to micros
+                interval = multiplyExact(interval, MICROSECONDS_PER_MILLISECOND);
+            }
 
             return timestamp + interval;
         }
@@ -242,7 +247,7 @@ public final class TimestampOperators
                 @SqlType("timestamp(p)") LongTimestamp timestamp,
                 @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
         {
-            return new LongTimestamp(timestamp.getEpochMicros() + multiplyExact(interval, MICROSECONDS_PER_MILLISECOND), timestamp.getPicosOfMicro());
+            return new LongTimestamp(timestamp.getEpochMicros() + multiplyExact(interval, MICROSECONDS_PER_MILLISECOND), timestamp.getPicosOfMicro(), sessionTimeZoneKey);
         }
     }
 
@@ -253,10 +258,11 @@ public final class TimestampOperators
         @SqlType("timestamp(u)")
         @Constraint(variable = "u", expression = "max(3, p)") // Interval is currently p = 3, so the minimum result precision is 3.
         public static long add(
+                @LiteralParameter("p") long precision,
                 @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval,
                 @SqlType("timestamp(p)") long timestamp)
         {
-            return TimestampPlusIntervalDayToSecond.add(timestamp, interval);
+            return TimestampPlusIntervalDayToSecond.add(precision, timestamp, interval);
         }
 
         @LiteralParameters({"p", "u"})
@@ -278,23 +284,42 @@ public final class TimestampOperators
         @LiteralParameters("p")
         @SqlType("timestamp(p)")
         public static long add(
+                @LiteralParameter("p") long precision,
+                ConnectorSession session,
                 @SqlType("timestamp(p)") long timestamp,
                 @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval)
         {
-            long fractionMicros = getMicrosOfMilli(timestamp);
-            long result = MONTH_OF_YEAR_UTC.add(scaleEpochMicrosToMillis(timestamp), interval);
-            return scaleEpochMillisToMicros(result) + fractionMicros;
+            long fractionMicros = 0;
+            if (precision > 3) {
+                fractionMicros = getMicrosOfMilli(timestamp);
+                timestamp = scaleEpochMicrosToMillis(timestamp);
+            }
+
+            long result;
+            if (session.isLegacyTimestamp()) {
+                result = getChronology(session.getTimeZoneKey()).monthOfYear().add(timestamp, interval);
+            }
+            else {
+                result = MONTH_OF_YEAR_UTC.add(timestamp, interval);
+            }
+
+            if (precision > 3) {
+                return scaleEpochMillisToMicros(result) + fractionMicros;
+            }
+
+            return result;
         }
 
         @LiteralParameters("p")
         @SqlType("timestamp(p)")
         public static LongTimestamp add(
+                ConnectorSession session,
                 @SqlType("timestamp(p)") LongTimestamp timestamp,
                 @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval)
         {
             return new LongTimestamp(
-                    add(timestamp.getEpochMicros(), interval),
-                    timestamp.getPicosOfMicro());
+                    add(6, session, timestamp.getEpochMicros(), interval),
+                    timestamp.getPicosOfMicro(), sessionTimeZoneKey);
         }
     }
 
@@ -304,10 +329,12 @@ public final class TimestampOperators
         @LiteralParameters("p")
         @SqlType("timestamp(p)")
         public static long add(
+                @LiteralParameter("p") long precision,
+                ConnectorSession session,
                 @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval,
                 @SqlType("timestamp(p)") long timestamp)
         {
-            return TimestampPlusIntervalYearToMonth.add(timestamp, interval);
+            return TimestampPlusIntervalYearToMonth.add(precision, session, timestamp, interval);
         }
 
         @LiteralParameters("p")
@@ -317,7 +344,7 @@ public final class TimestampOperators
                 @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval,
                 @SqlType("timestamp(p)") LongTimestamp timestamp)
         {
-            return TimestampPlusIntervalYearToMonth.add(timestamp, interval);
+            return TimestampPlusIntervalYearToMonth.add(session, timestamp, interval);
         }
     }
 
@@ -327,10 +354,12 @@ public final class TimestampOperators
         @LiteralParameters("p")
         @SqlType("timestamp(p)")
         public static long subtract(
+                @LiteralParameter("p") long precision,
+                ConnectorSession session,
                 @SqlType("timestamp(p)") long timestamp,
                 @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval)
         {
-            return TimestampPlusIntervalYearToMonth.add(timestamp, -interval);
+            return TimestampPlusIntervalYearToMonth.add(precision, session, timestamp, -interval);
         }
 
         @LiteralParameters("p")
@@ -340,7 +369,7 @@ public final class TimestampOperators
                 @SqlType("timestamp(p)") LongTimestamp timestamp,
                 @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval)
         {
-            return TimestampPlusIntervalYearToMonth.add(timestamp, -interval);
+            return TimestampPlusIntervalYearToMonth.add(session, timestamp, -interval);
         }
     }
 
@@ -351,10 +380,11 @@ public final class TimestampOperators
         @SqlType("timestamp(u)")
         @Constraint(variable = "u", expression = "max(3, p)") // Interval is currently p = 3, so the minimum result precision is 3.
         public static long subtract(
+                @LiteralParameter("p") long precision,
                 @SqlType("timestamp(p)") long timestamp,
                 @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
         {
-            return TimestampPlusIntervalDayToSecond.add(timestamp, -interval);
+            return TimestampPlusIntervalDayToSecond.add(precision, timestamp, -interval);
         }
 
         @LiteralParameters({"p", "u"})
@@ -374,13 +404,16 @@ public final class TimestampOperators
         @LiteralParameters("p")
         @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND)
         public static long subtract(
+                @LiteralParameter("p") long precision,
                 @SqlType("timestamp(p)") long left,
                 @SqlType("timestamp(p)") long right)
         {
             long interval = left - right;
 
-            interval = round(interval, 3);
-            interval = rescale(interval, MAX_SHORT_PRECISION, 3);
+            if (precision > 3) {
+                interval = round(interval, 3);
+                interval = rescale(interval, MAX_SHORT_PRECISION, 3);
+            }
 
             return interval;
         }
@@ -391,7 +424,7 @@ public final class TimestampOperators
                 @SqlType("timestamp(p)") LongTimestamp left,
                 @SqlType("timestamp(p)") LongTimestamp right)
         {
-            return subtract(left.getEpochMicros(), right.getEpochMicros());
+            return subtract(6, left.getEpochMicros(), right.getEpochMicros());
         }
     }
 }

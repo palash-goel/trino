@@ -13,7 +13,9 @@
  */
 package io.prestosql.operator.scalar.timestamp;
 
+import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.function.Description;
+import io.prestosql.spi.function.LiteralParameter;
 import io.prestosql.spi.function.LiteralParameters;
 import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.SqlType;
@@ -22,6 +24,7 @@ import io.prestosql.spi.type.StandardTypes;
 import org.joda.time.chrono.ISOChronology;
 
 import static io.prestosql.type.DateTimes.scaleEpochMicrosToMillis;
+import static io.prestosql.util.DateTimeZoneIndex.getChronology;
 
 @Description("Second of the minute of the given timestamp")
 @ScalarFunction("second")
@@ -31,15 +34,24 @@ public class ExtractSecond
 
     @LiteralParameters("p")
     @SqlType(StandardTypes.BIGINT)
-    public static long extract(@SqlType("timestamp(p)") long timestamp)
+    public static long extract(@LiteralParameter("p") long precision, ConnectorSession session, @SqlType("timestamp(p)") long timestamp)
     {
-        return ISOChronology.getInstanceUTC().secondOfMinute().get(scaleEpochMicrosToMillis(timestamp));
+        if (precision > 3) {
+            timestamp = scaleEpochMicrosToMillis(timestamp);
+        }
+
+        ISOChronology chronology = ISOChronology.getInstanceUTC();
+        if (session.isLegacyTimestamp()) {
+            chronology = getChronology(session.getTimeZoneKey());
+        }
+
+        return chronology.secondOfMinute().get(timestamp);
     }
 
     @LiteralParameters("p")
     @SqlType(StandardTypes.BIGINT)
-    public static long extract(@SqlType("timestamp(p)") LongTimestamp timestamp)
+    public static long extract(ConnectorSession session, @SqlType("timestamp(p)") LongTimestamp timestamp)
     {
-        return extract(timestamp.getEpochMicros());
+        return extract(6, session, timestamp.getEpochMicros());
     }
 }

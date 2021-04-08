@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multimap;
 import io.airlift.slice.SliceUtf8;
 import io.prestosql.Session;
+import io.prestosql.SystemSessionProperties;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.BoundSignature;
 import io.prestosql.metadata.FunctionMetadata;
@@ -170,6 +171,7 @@ import static io.prestosql.sql.tree.Extract.Field.TIMEZONE_MINUTE;
 import static io.prestosql.type.ArrayParametricType.ARRAY;
 import static io.prestosql.type.DateTimes.extractTimePrecision;
 import static io.prestosql.type.DateTimes.extractTimestampPrecision;
+import static io.prestosql.type.DateTimes.parseLegacyTimestamp;
 import static io.prestosql.type.DateTimes.parseTime;
 import static io.prestosql.type.DateTimes.parseTimeWithTimeZone;
 import static io.prestosql.type.DateTimes.parseTimestamp;
@@ -871,7 +873,12 @@ public class ExpressionAnalyzer
                 else {
                     int precision = extractTimestampPrecision(node.getValue());
                     type = createTimestampType(precision);
-                    parseTimestamp(precision, node.getValue());
+                    if (SystemSessionProperties.isLegacyTimestamp(session)) {
+                        parseLegacyTimestamp(precision, session.getTimeZoneKey(), node.getValue());
+                    }
+                    else {
+                        parseTimestamp(precision, node.getValue());
+                    }
                 }
             }
             catch (PrestoException e) {

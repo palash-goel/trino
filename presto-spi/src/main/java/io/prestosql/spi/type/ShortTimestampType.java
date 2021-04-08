@@ -21,6 +21,7 @@ import io.prestosql.spi.block.PageBuilderStatus;
 import io.prestosql.spi.connector.ConnectorSession;
 
 import static io.prestosql.spi.type.TimestampTypes.hashShortTimestamp;
+import static java.lang.Math.multiplyExact;
 import static java.lang.String.format;
 
 /**
@@ -126,7 +127,22 @@ class ShortTimestampType
             return null;
         }
 
-        long epochMicros = getLong(block, position);
-        return SqlTimestamp.newInstance(getPrecision(), epochMicros, 0);
+        long value = block.getLong(position, 0);
+
+        if (getPrecision() <= 3) {
+            value = scaleEpochMillisToMicros(value);
+        }
+
+        if (session.isLegacyTimestamp()) {
+            return SqlTimestamp.newLegacyInstance(getPrecision(), value, 0, session.getTimeZoneKey());
+        }
+        else {
+            return SqlTimestamp.newInstance(getPrecision(), value, 0);
+        }
+    }
+
+    private static long scaleEpochMillisToMicros(long epochMillis)
+    {
+        return multiplyExact(epochMillis, 1000);
     }
 }

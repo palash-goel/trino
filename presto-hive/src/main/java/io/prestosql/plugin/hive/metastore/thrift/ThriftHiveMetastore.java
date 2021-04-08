@@ -1741,8 +1741,7 @@ public class ThriftHiveMetastore
                             new HiveObjectRef(TABLE, databaseName, tableName, null, null),
                             grantee.getName(),
                             fromPrestoPrincipalType(grantee.getType()),
-                            privilegeGrantInfo,
-                            "SQL"));
+                            privilegeGrantInfo));
         }
         return new PrivilegeBag(privilegeBagBuilder.build());
     }

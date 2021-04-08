@@ -65,6 +65,7 @@ import io.prestosql.sql.planner.TestingConnectorTransactionHandle;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
+import org.joda.time.DateTimeZone;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -92,7 +93,6 @@ import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMNS;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMN_TYPES;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
-import static org.joda.time.DateTimeZone.UTC;
 
 public enum FileFormat
 {
@@ -106,7 +106,7 @@ public enum FileFormat
         @Override
         public Optional<HivePageSourceFactory> getHivePageSourceFactory(HdfsEnvironment hdfsEnvironment)
         {
-            return Optional.of(new RcFilePageSourceFactory(TYPE_MANAGER, hdfsEnvironment, new FileFormatDataSourceStats(), new HiveConfig().setRcfileTimeZone("UTC")));
+            return Optional.of(new RcFilePageSourceFactory(TYPE_MANAGER, hdfsEnvironment, new FileFormatDataSourceStats()));
         }
 
         @Override
@@ -121,7 +121,7 @@ public enum FileFormat
             return new PrestoRcFileFormatWriter(
                     targetFile,
                     columnTypes,
-                    new BinaryRcFileEncoding(UTC),
+                    new BinaryRcFileEncoding(),
                     compressionCodec);
         }
     },
@@ -136,7 +136,7 @@ public enum FileFormat
         @Override
         public Optional<HivePageSourceFactory> getHivePageSourceFactory(HdfsEnvironment hdfsEnvironment)
         {
-            return Optional.of(new RcFilePageSourceFactory(TYPE_MANAGER, hdfsEnvironment, new FileFormatDataSourceStats(), new HiveConfig().setRcfileTimeZone("UTC")));
+            return Optional.of(new RcFilePageSourceFactory(TYPE_MANAGER, hdfsEnvironment, new FileFormatDataSourceStats()));
         }
 
         @Override
@@ -151,7 +151,7 @@ public enum FileFormat
             return new PrestoRcFileFormatWriter(
                     targetFile,
                     columnTypes,
-                    new TextRcFileEncoding(),
+                    new TextRcFileEncoding(DateTimeZone.forID(session.getTimeZoneKey().getId())),
                     compressionCodec);
         }
     },
@@ -166,7 +166,7 @@ public enum FileFormat
         @Override
         public Optional<HivePageSourceFactory> getHivePageSourceFactory(HdfsEnvironment hdfsEnvironment)
         {
-            return Optional.of(new OrcPageSourceFactory(new OrcReaderOptions(), hdfsEnvironment, new FileFormatDataSourceStats(), UTC));
+            return Optional.of(new OrcPageSourceFactory(new OrcReaderOptions(), hdfsEnvironment, new FileFormatDataSourceStats()));
         }
 
         @Override
@@ -182,6 +182,7 @@ public enum FileFormat
                     targetFile,
                     columnNames,
                     columnTypes,
+                    DateTimeZone.forID(session.getTimeZoneKey().getId()),
                     compressionCodec);
         }
     },
@@ -196,7 +197,7 @@ public enum FileFormat
         @Override
         public Optional<HivePageSourceFactory> getHivePageSourceFactory(HdfsEnvironment hdfsEnvironment)
         {
-            return Optional.of(new ParquetPageSourceFactory(hdfsEnvironment, new FileFormatDataSourceStats(), new ParquetReaderConfig(), new HiveConfig().setParquetTimeZone("UTC")));
+            return Optional.of(new ParquetPageSourceFactory(hdfsEnvironment, new FileFormatDataSourceStats(), new ParquetReaderConfig()));
         }
 
         @Override
@@ -292,12 +293,6 @@ public enum FileFormat
         public HiveStorageFormat getFormat()
         {
             return HiveStorageFormat.PARQUET;
-        }
-
-        @Override
-        public Optional<HiveRecordCursorProvider> getHiveRecordCursorProvider(HdfsEnvironment hdfsEnvironment)
-        {
-            return Optional.of(createGenericHiveRecordCursorProvider(hdfsEnvironment));
         }
 
         @Override
@@ -436,7 +431,7 @@ public enum FileFormat
                 createSchema(format, columnNames, columnTypes),
                 readColumns,
                 TupleDomain.all(),
-                TYPE_MANAGER,
+                DateTimeZone.forID(session.getTimeZoneKey().getId()),TYPE_MANAGER,
                 false);
 
         checkState(recordCursorWithProjections.isPresent(), "readerPageSourceWithProjections is not present");
@@ -468,6 +463,7 @@ public enum FileFormat
                         schema,
                         readColumns,
                         TupleDomain.all(),
+                        DateTimeZone.forID(session.getTimeZoneKey().getId()),
                         Optional.empty());
 
         checkState(readerPageSourceWithProjections.isPresent(), "readerPageSourceWithProjections is not present");
@@ -513,7 +509,6 @@ public enum FileFormat
                     format.getEstimatedWriterSystemMemoryUsage(),
                     config,
                     TYPE_MANAGER,
-                    UTC,
                     session);
         }
 
@@ -584,7 +579,7 @@ public enum FileFormat
     {
         private final OrcWriter writer;
 
-        public PrestoOrcFormatWriter(File targetFile, List<String> columnNames, List<Type> types, HiveCompressionCodec compressionCodec)
+        public PrestoOrcFormatWriter(File targetFile, List<String> columnNames, List<Type> types, DateTimeZone hiveStorageTimeZone, HiveCompressionCodec compressionCodec)
                 throws IOException
         {
             writer = new OrcWriter(
@@ -596,6 +591,7 @@ public enum FileFormat
                     new OrcWriterOptions(),
                     false,
                     ImmutableMap.of(),
+                    hiveStorageTimeZone,
                     false,
                     BOTH,
                     new OrcWriterStats());

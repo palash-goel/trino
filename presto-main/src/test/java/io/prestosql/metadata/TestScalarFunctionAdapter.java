@@ -403,7 +403,7 @@ public class TestScalarFunctionAdapter
             return Slices.utf8Slice("1234567");
         }
         if (argumentType.equals(TIMESTAMP_TYPE)) {
-            return new LongTimestamp(5678, 123_000);
+            return new LongTimestamp(5678, 123_000, sessionTimeZoneKey);
         }
         throw new IllegalArgumentException("Unsupported argument type: " + argumentType);
     }

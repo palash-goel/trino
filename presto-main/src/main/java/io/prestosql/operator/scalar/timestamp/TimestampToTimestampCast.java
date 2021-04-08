@@ -51,7 +51,7 @@ public final class TimestampToTimestampCast
     @SqlType("timestamp(targetPrecision)")
     public static LongTimestamp shortToLong(@SqlType("timestamp(sourcePrecision)") long value)
     {
-        return new LongTimestamp(value, 0);
+        return new LongTimestamp(value, 0, sessionTimeZoneKey);
     }
 
     @LiteralParameters({"sourcePrecision", "targetPrecision"})
@@ -78,6 +78,6 @@ public final class TimestampToTimestampCast
             @LiteralParameter("targetPrecision") long targetPrecision,
             @SqlType("timestamp(sourcePrecision)") LongTimestamp value)
     {
-        return new LongTimestamp(value.getEpochMicros(), (int) round(value.getPicosOfMicro(), (int) (MAX_PRECISION - targetPrecision)));
+        return new LongTimestamp(value.getEpochMicros(), (int) round(value.getPicosOfMicro(), (int) (MAX_PRECISION - targetPrecision)), sessionTimeZoneKey);
     }
 }

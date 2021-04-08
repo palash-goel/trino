@@ -22,6 +22,7 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.security.ConnectorIdentity;
 import io.prestosql.spi.session.PropertyMetadata;
 import io.prestosql.spi.type.TimeZoneKey;
+import io.prestosql.sql.analyzer.FeaturesConfig;
 
 import java.time.Instant;
 import java.util.List;
@@ -51,6 +52,8 @@ public class TestingConnectorSession
     private final Instant start;
     private final Map<String, PropertyMetadata<?>> properties;
     private final Map<String, Object> propertyValues;
+    private final boolean isLegacyTimestamp;
+    private final boolean omitTimestampPrecision;
 
     private TestingConnectorSession(
             ConnectorIdentity identity,
@@ -60,7 +63,9 @@ public class TestingConnectorSession
             Locale locale,
             Instant start,
             List<PropertyMetadata<?>> propertyMetadatas,
-            Map<String, Object> propertyValues)
+            Map<String, Object> propertyValues,
+            boolean isLegacyTimestamp,
+            boolean omitTimestampPrecision)
     {
         this.identity = requireNonNull(identity, "identity is null");
         this.source = requireNonNull(source, "source is null");
@@ -70,6 +75,8 @@ public class TestingConnectorSession
         this.start = start;
         this.properties = Maps.uniqueIndex(propertyMetadatas, PropertyMetadata::getName);
         this.propertyValues = ImmutableMap.copyOf(propertyValues);
+        this.isLegacyTimestamp = isLegacyTimestamp;
+        this.omitTimestampPrecision = omitTimestampPrecision;
     }
 
     @Override
@@ -112,6 +119,12 @@ public class TestingConnectorSession
     public Optional<String> getTraceToken()
     {
         return traceToken;
+    }
+
+    @Override
+    public boolean isLegacyTimestamp()
+    {
+        return isLegacyTimestamp;
     }
 
     @Override
@@ -158,6 +171,8 @@ public class TestingConnectorSession
         private Optional<Instant> start = Optional.empty();
         private List<PropertyMetadata<?>> propertyMetadatas = ImmutableList.of();
         private Map<String, Object> propertyValues = ImmutableMap.of();
+        private boolean isLegacyTimestamp = new FeaturesConfig().isLegacyTimestamp();
+        private boolean omitTimestampPrecision = new FeaturesConfig().isOmitDateTimeTypePrecision();
 
         public Builder setIdentity(ConnectorIdentity identity)
         {
@@ -191,6 +206,18 @@ public class TestingConnectorSession
             return this;
         }
 
+        public Builder setLegacyTimestamp(boolean legacyTimestamp)
+        {
+            isLegacyTimestamp = legacyTimestamp;
+            return this;
+        }
+
+        public Builder setOmitTimestampPrecision(boolean value)
+        {
+            this.omitTimestampPrecision = value;
+            return this;
+        }
+
         public TestingConnectorSession build()
         {
             return new TestingConnectorSession(
@@ -201,7 +228,9 @@ public class TestingConnectorSession
                     locale,
                     start.orElse(Instant.now()),
                     propertyMetadatas,
-                    propertyValues);
+                    propertyValues,
+                    isLegacyTimestamp,
+                    omitTimestampPrecision);
         }
     }
 }

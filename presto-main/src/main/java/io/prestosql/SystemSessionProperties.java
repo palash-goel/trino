@@ -93,6 +93,7 @@ public final class SystemSessionProperties
     public static final String ITERATIVE_OPTIMIZER_TIMEOUT = "iterative_optimizer_timeout";
     public static final String ENABLE_FORCED_EXCHANGE_BELOW_GROUP_ID = "enable_forced_exchange_below_group_id";
     public static final String EXCHANGE_COMPRESSION = "exchange_compression";
+    public static final String LEGACY_TIMESTAMP = "legacy_timestamp";
     public static final String ENABLE_INTERMEDIATE_AGGREGATIONS = "enable_intermediate_aggregations";
     public static final String PUSH_AGGREGATION_THROUGH_OUTER_JOIN = "push_aggregation_through_outer_join";
     public static final String PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN = "push_partial_aggregation_through_join";
@@ -395,6 +396,11 @@ public final class SystemSessionProperties
                         "Enable compression in exchanges",
                         featuresConfig.isExchangeCompressionEnabled(),
                         false),
+                booleanProperty(
+                        LEGACY_TIMESTAMP,
+                        "Use legacy TIME & TIMESTAMP semantics (warning: this will be removed)",
+                        featuresConfig.isLegacyTimestamp(),
+                        true),
                 booleanProperty(
                         ENABLE_INTERMEDIATE_AGGREGATIONS,
                         "Enable the use of intermediate aggregations",
@@ -803,6 +809,11 @@ public final class SystemSessionProperties
     public static boolean isOptimizeDistinctAggregationEnabled(Session session)
     {
         return session.getSystemProperty(OPTIMIZE_DISTINCT_AGGREGATIONS, Boolean.class);
+    }
+
+    public static boolean isLegacyTimestamp(Session session)
+    {
+        return session.getSystemProperty(LEGACY_TIMESTAMP, Boolean.class);
     }
 
     public static Duration getOptimizerTimeout(Session session)

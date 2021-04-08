@@ -380,9 +380,9 @@ public class TestTupleDomainOrcPredicate
         assertThat(getDomain(TIMESTAMP_NANOS, 10, timeStampColumnStats(10L, null, null)))
                 .isEqualTo(notNull(TIMESTAMP_NANOS));
 
-        LongTimestamp low13 = new LongTimestamp(13_000L, 0);
-        LongTimestamp low100 = new LongTimestamp(100_000L, 0);
-        LongTimestamp high100 = new LongTimestamp(101_000L, 0);
+        LongTimestamp low13 = new LongTimestamp(13_000L, 0, sessionTimeZoneKey);
+        LongTimestamp low100 = new LongTimestamp(100_000L, 0, sessionTimeZoneKey);
+        LongTimestamp high100 = new LongTimestamp(101_000L, 0, sessionTimeZoneKey);
 
         assertThat(getDomain(TIMESTAMP_NANOS, 10, timeStampColumnStats(10L, 100L, 100L)))
                 .isEqualTo(create(ValueSet.ofRanges(range(TIMESTAMP_NANOS, low100, true, high100, true)), false));

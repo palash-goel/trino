@@ -83,4 +83,14 @@ public final class DateTimeOperators
     {
         return datePlusIntervalYearToMonth(date, -interval);
     }
+
+    public static int modulo24Hour(ISOChronology chronology, long millis)
+    {
+        return chronology.millisOfDay().get(millis) - chronology.getZone().getOffset(millis);
+    }
+
+    public static long modulo24Hour(long millis)
+    {
+        return MILLIS_OF_DAY.get(millis);
+    }
 }

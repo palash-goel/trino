@@ -55,9 +55,7 @@ import static java.util.concurrent.TimeUnit.MINUTES;
         "analyzer.experimental-syntax-enabled",
         "optimizer.processing-optimization",
         "deprecated.legacy-order-by",
-        "deprecated.legacy-join-using",
-        "deprecated.legacy-timestamp",
-})
+        "deprecated.legacy-join-using"})
 public class FeaturesConfig
 {
     @VisibleForTesting
@@ -88,6 +86,7 @@ public class FeaturesConfig
     private boolean pushTableWriteThroughUnion = true;
     private DataIntegrityVerification exchangeDataIntegrityVerification = DataIntegrityVerification.ABORT;
     private boolean exchangeCompressionEnabled;
+    private boolean legacyTimestamp = true;
     private boolean optimizeMixedDistinctAggregations;
     private boolean unwrapCasts = true;
     private boolean forceSingleNodeOutput = true;
@@ -226,6 +225,18 @@ public class FeaturesConfig
     {
         this.omitDateTimeTypePrecision = value;
         return this;
+    }
+
+    @Config("deprecated.legacy-timestamp")
+    public FeaturesConfig setLegacyTimestamp(boolean value)
+    {
+        this.legacyTimestamp = value;
+        return this;
+    }
+
+    public boolean isLegacyTimestamp()
+    {
+        return legacyTimestamp;
     }
 
     public JoinDistributionType getJoinDistributionType()

@@ -14,7 +14,9 @@
 package io.prestosql.operator.scalar.timestamp;
 
 import io.airlift.slice.Slice;
+import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.function.Description;
+import io.prestosql.spi.function.LiteralParameter;
 import io.prestosql.spi.function.LiteralParameters;
 import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.SqlType;
@@ -24,6 +26,7 @@ import org.joda.time.chrono.ISOChronology;
 import static io.prestosql.operator.scalar.DateTimeFunctions.getTimestampField;
 import static io.prestosql.type.DateTimes.scaleEpochMicrosToMillis;
 import static io.prestosql.type.DateTimes.scaleEpochMillisToMicros;
+import static io.prestosql.util.DateTimeZoneIndex.getChronology;
 
 @Description("Truncate to the specified precision in the session timezone")
 @ScalarFunction("date_trunc")
@@ -34,12 +37,20 @@ public final class DateTrunc
     @LiteralParameters({"x", "p"})
     @SqlType("timestamp(p)")
     public static long truncate(
+            @LiteralParameter("p") long precision,
+            ConnectorSession session,
             @SqlType("varchar(x)") Slice unit,
             @SqlType("timestamp(p)") long timestamp)
     {
         timestamp = scaleEpochMicrosToMillis(timestamp);
 
-        long result = getTimestampField(ISOChronology.getInstanceUTC(), unit).roundFloor(timestamp);
+        long result;
+        if (session.isLegacyTimestamp()) {
+            result = getTimestampField(getChronology(session.getTimeZoneKey()), unit).roundFloor(timestamp);
+        }
+        else {
+            result = getTimestampField(ISOChronology.getInstanceUTC(), unit).roundFloor(timestamp);
+        }
 
         return scaleEpochMillisToMicros(result);
     }
@@ -47,14 +58,21 @@ public final class DateTrunc
     @LiteralParameters({"x", "p"})
     @SqlType("timestamp(p)")
     public static LongTimestamp truncate(
+            ConnectorSession session,
             @SqlType("varchar(x)") Slice unit,
             @SqlType("timestamp(p)") LongTimestamp timestamp)
     {
         long epochMillis = scaleEpochMicrosToMillis(timestamp.getEpochMicros());
 
-        long result = getTimestampField(ISOChronology.getInstanceUTC(), unit).roundFloor(epochMillis);
+        long result;
+        if (session.isLegacyTimestamp()) {
+            result = getTimestampField(getChronology(session.getTimeZoneKey()), unit).roundFloor(epochMillis);
+        }
+        else {
+            result = getTimestampField(ISOChronology.getInstanceUTC(), unit).roundFloor(epochMillis);
+        }
 
         // smallest unit of truncation is "millisecond", so the fraction is always 0
-        return new LongTimestamp(scaleEpochMillisToMicros(result), 0);
+        return new LongTimestamp(scaleEpochMillisToMicros(result), 0, sessionTimeZoneKey);
     }
 }

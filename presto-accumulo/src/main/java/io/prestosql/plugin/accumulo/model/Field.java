@@ -333,10 +333,14 @@ public class Field
         }
 
         if (type.equals(TIME)) {
+            // TODO this likely is incorrect, passing the millis value interpreted in UTC into millis value interpreted in JVM's zone
+            // TODO account for non-legacy timestamp
             return new Time((long) value);
         }
 
         if (type.equals(TIMESTAMP_MILLIS)) {
+            // TODO this likely is incorrect, passing the millis value interpreted in UTC into millis value interpreted in JVM's zone
+            // TODO account for non-legacy timestamp
             return new Timestamp(floorDiv((Long) value, MICROSECONDS_PER_MILLISECOND));
         }
 

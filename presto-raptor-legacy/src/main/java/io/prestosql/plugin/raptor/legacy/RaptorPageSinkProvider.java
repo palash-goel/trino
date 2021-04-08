@@ -16,6 +16,7 @@ package io.prestosql.plugin.raptor.legacy;
 import io.airlift.units.DataSize;
 import io.prestosql.plugin.raptor.legacy.storage.StorageManager;
 import io.prestosql.plugin.raptor.legacy.storage.StorageManagerConfig;
+import io.prestosql.plugin.raptor.legacy.storage.organization.TemporalFunction;
 import io.prestosql.spi.PageSorter;
 import io.prestosql.spi.connector.ConnectorInsertTableHandle;
 import io.prestosql.spi.connector.ConnectorOutputTableHandle;
@@ -36,13 +37,15 @@ public class RaptorPageSinkProvider
 {
     private final StorageManager storageManager;
     private final PageSorter pageSorter;
+    private final TemporalFunction temporalFunction;
     private final DataSize maxBufferSize;
 
     @Inject
-    public RaptorPageSinkProvider(StorageManager storageManager, PageSorter pageSorter, StorageManagerConfig config)
+    public RaptorPageSinkProvider(StorageManager storageManager, PageSorter pageSorter, TemporalFunction temporalFunction, StorageManagerConfig config)
     {
         this.storageManager = requireNonNull(storageManager, "storageManager is null");
         this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
+        this.temporalFunction = requireNonNull(temporalFunction, "temporalFunction is null");
         this.maxBufferSize = config.getMaxBufferSize();
     }
 
@@ -53,6 +56,7 @@ public class RaptorPageSinkProvider
         return new RaptorPageSink(
                 pageSorter,
                 storageManager,
+                temporalFunction,
                 handle.getTransactionId(),
                 toColumnIds(handle.getColumnHandles()),
                 handle.getColumnTypes(),
@@ -71,6 +75,7 @@ public class RaptorPageSinkProvider
         return new RaptorPageSink(
                 pageSorter,
                 storageManager,
+                temporalFunction,
                 handle.getTransactionId(),
                 toColumnIds(handle.getColumnHandles()),
                 handle.getColumnTypes(),

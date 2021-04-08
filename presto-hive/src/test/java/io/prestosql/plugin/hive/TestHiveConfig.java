@@ -26,8 +26,6 @@ import java.util.concurrent.TimeUnit;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static io.prestosql.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.APPEND;
-import static io.prestosql.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.OVERWRITE;
 import static io.prestosql.plugin.hive.util.TestHiveUtil.nonDefaultTimeZone;
 
 public class TestHiveConfig
@@ -36,6 +34,7 @@ public class TestHiveConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(HiveConfig.class)
+                .setTimeZone(TimeZone.getDefault().getID())
                 .setMaxSplitSize(DataSize.of(64, Unit.MEGABYTE))
                 .setMaxPartitionsPerScan(100_000)
                 .setMaxOutstandingSplits(1_000)
@@ -60,17 +59,14 @@ public class TestHiveConfig
                 .setHiveCompressionCodec(HiveCompressionCodec.GZIP)
                 .setRespectTableFormat(true)
                 .setImmutablePartitions(false)
-                .setInsertExistingPartitionsBehavior(APPEND)
                 .setCreateEmptyBucketFiles(false)
                 .setSortedWritingEnabled(true)
                 .setMaxPartitionsPerWriter(100)
                 .setMaxOpenSortFiles(50)
                 .setWriteValidationThreads(16)
                 .setTextMaxLineLength(DataSize.of(100, Unit.MEGABYTE))
-                .setOrcLegacyTimeZone(TimeZone.getDefault().getID())
-                .setParquetTimeZone(TimeZone.getDefault().getID())
                 .setUseParquetColumnNames(false)
-                .setRcfileTimeZone(TimeZone.getDefault().getID())
+                .setAssumeCanonicalPartitionKeys(false)
                 .setRcfileWriterValidate(false)
                 .setSkipDeletionForAlter(false)
                 .setSkipTargetCleanupOnRollback(false)
@@ -98,15 +94,14 @@ public class TestHiveConfig
                 .setAllowRegisterPartition(false)
                 .setQueryPartitionFilterRequired(false)
                 .setPartitionUseColumnNames(false)
-                .setProjectionPushdownEnabled(true)
-                .setDynamicFilteringProbeBlockingTimeout(new Duration(0, TimeUnit.MINUTES))
-                .setTimestampPrecision(HiveTimestampPrecision.MILLISECONDS));
+                .setProjectionPushdownEnabled(true));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+                .put("hive.time-zone", nonDefaultTimeZone().getID())
                 .put("hive.max-split-size", "256MB")
                 .put("hive.max-partitions-per-scan", "123")
                 .put("hive.max-outstanding-splits", "10")
@@ -128,7 +123,6 @@ public class TestHiveConfig
                 .put("hive.compression-codec", "NONE")
                 .put("hive.respect-table-format", "false")
                 .put("hive.immutable-partitions", "true")
-                .put("hive.insert-existing-partitions-behavior", "OVERWRITE")
                 .put("hive.create-empty-bucket-files", "true")
                 .put("hive.max-partitions-per-writers", "222")
                 .put("hive.max-open-sort-files", "333")
@@ -136,11 +130,9 @@ public class TestHiveConfig
                 .put("hive.force-local-scheduling", "true")
                 .put("hive.max-concurrent-file-renames", "100")
                 .put("hive.max-concurrent-metastore-drops", "100")
+                .put("hive.assume-canonical-partition-keys", "true")
                 .put("hive.text.max-line-length", "13MB")
-                .put("hive.orc.time-zone", nonDefaultTimeZone().getID())
-                .put("hive.parquet.time-zone", nonDefaultTimeZone().getID())
                 .put("hive.parquet.use-column-names", "true")
-                .put("hive.rcfile.time-zone", nonDefaultTimeZone().getID())
                 .put("hive.rcfile.writer.validate", "true")
                 .put("hive.skip-deletion-for-alter", "true")
                 .put("hive.skip-target-cleanup-on-rollback", "true")
@@ -170,11 +162,10 @@ public class TestHiveConfig
                 .put("hive.query-partition-filter-required", "true")
                 .put("hive.partition-use-column-names", "true")
                 .put("hive.projection-pushdown-enabled", "false")
-                .put("hive.dynamic-filtering-probe-blocking-timeout", "10s")
-                .put("hive.timestamp-precision", "NANOSECONDS")
                 .build();
 
         HiveConfig expected = new HiveConfig()
+                .setTimeZone(nonDefaultTimeZone().toTimeZone().getID())
                 .setMaxSplitSize(DataSize.of(256, Unit.MEGABYTE))
                 .setMaxPartitionsPerScan(123)
                 .setMaxOutstandingSplits(10)
@@ -199,16 +190,13 @@ public class TestHiveConfig
                 .setHiveCompressionCodec(HiveCompressionCodec.NONE)
                 .setRespectTableFormat(false)
                 .setImmutablePartitions(true)
-                .setInsertExistingPartitionsBehavior(OVERWRITE)
                 .setCreateEmptyBucketFiles(true)
                 .setMaxPartitionsPerWriter(222)
                 .setMaxOpenSortFiles(333)
                 .setWriteValidationThreads(11)
                 .setTextMaxLineLength(DataSize.of(13, Unit.MEGABYTE))
-                .setOrcLegacyTimeZone(nonDefaultTimeZone().getID())
-                .setParquetTimeZone(nonDefaultTimeZone().getID())
                 .setUseParquetColumnNames(true)
-                .setRcfileTimeZone(nonDefaultTimeZone().getID())
+                .setAssumeCanonicalPartitionKeys(true)
                 .setRcfileWriterValidate(true)
                 .setSkipDeletionForAlter(true)
                 .setSkipTargetCleanupOnRollback(true)
@@ -237,9 +225,7 @@ public class TestHiveConfig
                 .setAllowRegisterPartition(true)
                 .setQueryPartitionFilterRequired(true)
                 .setPartitionUseColumnNames(true)
-                .setProjectionPushdownEnabled(false)
-                .setDynamicFilteringProbeBlockingTimeout(new Duration(10, TimeUnit.SECONDS))
-                .setTimestampPrecision(HiveTimestampPrecision.NANOSECONDS);
+                .setProjectionPushdownEnabled(false);
 
         assertFullMapping(properties, expected);
     }

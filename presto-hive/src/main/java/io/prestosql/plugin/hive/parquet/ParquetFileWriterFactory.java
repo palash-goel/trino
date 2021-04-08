@@ -17,8 +17,10 @@ import io.prestosql.parquet.writer.ParquetSchemaConverter;
 import io.prestosql.parquet.writer.ParquetWriterOptions;
 import io.prestosql.plugin.hive.FileWriter;
 import io.prestosql.plugin.hive.HdfsEnvironment;
+import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.HiveFileWriterFactory;
 import io.prestosql.plugin.hive.HiveSessionProperties;
+import io.prestosql.plugin.hive.NodeVersion;
 import io.prestosql.plugin.hive.metastore.StorageFormat;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -30,6 +32,7 @@ import org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.parquet.hadoop.ParquetOutputFormat;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
+import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
 
@@ -48,16 +51,35 @@ import static java.util.stream.Collectors.toList;
 public class ParquetFileWriterFactory
         implements HiveFileWriterFactory
 {
+    private final DateTimeZone hiveStorageTimeZone;
     private final HdfsEnvironment hdfsEnvironment;
     private final TypeManager typeManager;
+    private final NodeVersion nodeVersion;
 
     @Inject
     public ParquetFileWriterFactory(
             HdfsEnvironment hdfsEnvironment,
-            TypeManager typeManager)
+            TypeManager typeManager,
+            NodeVersion nodeVersion,
+            HiveConfig hiveConfig)
+    {
+        this(
+                hdfsEnvironment,
+                typeManager,
+                nodeVersion,
+                requireNonNull(hiveConfig, "hiveConfig is null").getDateTimeZone());
+    }
+
+    public ParquetFileWriterFactory(
+            HdfsEnvironment hdfsEnvironment,
+            TypeManager typeManager,
+            NodeVersion nodeVersion,
+            DateTimeZone hiveStorageTimeZone)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
+        this.hiveStorageTimeZone = requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
     }
 
     @Override

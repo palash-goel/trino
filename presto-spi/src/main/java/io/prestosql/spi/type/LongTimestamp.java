@@ -13,7 +13,10 @@
  */
 package io.prestosql.spi.type;
 
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.Objects;
+import java.util.Optional;
 
 import static io.prestosql.spi.type.Timestamps.formatTimestamp;
 
@@ -24,9 +27,11 @@ public final class LongTimestamp
 
     private final long epochMicros;
     private final int picosOfMicro; // number of picoSeconds of the microsecond corresponding to epochMicros. It represents an increment towards the positive side.
+    private final Optional<TimeZoneKey> sessionTimeZoneKey;
 
-    public LongTimestamp(long epochMicros, int picosOfMicro)
+    public LongTimestamp(long epochMicros, int picosOfMicro, Optional<TimeZoneKey> sessionTimeZoneKey)
     {
+        this.sessionTimeZoneKey = sessionTimeZoneKey;
         if (picosOfMicro < 0) {
             throw new IllegalArgumentException("picosOfMicro must be >= 0");
         }
@@ -35,6 +40,11 @@ public final class LongTimestamp
         }
         this.epochMicros = epochMicros;
         this.picosOfMicro = picosOfMicro;
+    }
+
+    public LongTimestamp(long epochMicros, int picosOfMicro)
+    {
+        this(epochMicros, picosOfMicro, Optional.empty());
     }
 
     public long getEpochMicros()
@@ -80,6 +90,10 @@ public final class LongTimestamp
     @Override
     public String toString()
     {
-        return formatTimestamp(TimestampType.MAX_PRECISION, epochMicros, picosOfMicro);
+        ZoneId zoneId = sessionTimeZoneKey
+                .map(TimeZoneKey::getId)
+                .map(ZoneId::of)
+                .orElse(ZoneOffset.UTC);
+        return formatTimestamp(TimestampType.MAX_PRECISION, epochMicros, picosOfMicro, zoneId);
     }
 }

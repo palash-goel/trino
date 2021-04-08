@@ -20,6 +20,7 @@ import io.prestosql.spi.connector.ConnectorSplitSource;
 import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.testing.TestingConnectorSession;
 import org.testng.annotations.Test;
 
@@ -75,6 +76,7 @@ public class TestPinotSplitManager
 
     private void testSegmentSplitsHelperNoFilter(PinotTableHandle table, int segmentsPerSplit, int expectedNumSplits, boolean expectFilter)
     {
+        PinotConfig pinotConfig = new PinotConfig().setPreferBrokerQueries(false);
         PinotTableHandle pinotTableHandle = new PinotTableHandle(table.getSchemaName(), table.getTableName());
         List<PinotSplit> splits = getSplitsHelper(pinotTableHandle, segmentsPerSplit, false);
         assertSplits(splits, expectedNumSplits, SEGMENT);
@@ -83,6 +85,7 @@ public class TestPinotSplitManager
 
     private void testSegmentSplitsHelperWithFilter(PinotTableHandle table, int segmentsPerSplit, int expectedNumSplits)
     {
+        PinotConfig pinotConfig = new PinotConfig().setPreferBrokerQueries(false);
         PinotTableHandle pinotTableHandle = new PinotTableHandle(table.getSchemaName(), table.getTableName());
         List<PinotSplit> splits = getSplitsHelper(pinotTableHandle, segmentsPerSplit, false);
         assertSplits(splits, expectedNumSplits, SEGMENT);
@@ -119,6 +122,8 @@ public class TestPinotSplitManager
                         .put(PinotSessionProperties.SEGMENTS_PER_SPLIT, numSegmentsPerSplit)
                         .put(PinotSessionProperties.FORBID_SEGMENT_QUERIES, forbidSegmentQueries)
                         .build())
+                .setLegacyTimestamp(new FeaturesConfig().isLegacyTimestamp())
+                .setOmitTimestampPrecision(new FeaturesConfig().isOmitDateTimeTypePrecision())
                 .build();
     }
 

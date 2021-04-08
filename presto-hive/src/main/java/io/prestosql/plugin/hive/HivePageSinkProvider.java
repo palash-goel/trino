@@ -34,7 +34,6 @@ import io.prestosql.spi.connector.ConnectorPageSinkProvider;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.type.TypeManager;
-import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
 
@@ -61,6 +60,7 @@ public class HivePageSinkProvider
     private final int maxOpenPartitions;
     private final int maxOpenSortFiles;
     private final DataSize writerSortBufferSize;
+    private final boolean immutablePartitions;
     private final LocationService locationService;
     private final ListeningExecutorService writeVerificationExecutor;
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
@@ -69,7 +69,6 @@ public class HivePageSinkProvider
     private final HiveSessionProperties hiveSessionProperties;
     private final HiveWriterStats hiveWriterStats;
     private final long perTransactionMetastoreCacheMaximumSize;
-    private final DateTimeZone parquetTimeZone;
 
     @Inject
     public HivePageSinkProvider(
@@ -96,6 +95,7 @@ public class HivePageSinkProvider
         this.maxOpenPartitions = config.getMaxPartitionsPerWriter();
         this.maxOpenSortFiles = config.getMaxOpenSortFiles();
         this.writerSortBufferSize = requireNonNull(config.getWriterSortBufferSize(), "writerSortBufferSize is null");
+        this.immutablePartitions = config.isImmutablePartitions();
         this.locationService = requireNonNull(locationService, "locationService is null");
         this.writeVerificationExecutor = listeningDecorator(newFixedThreadPool(config.getWriteValidationThreads(), daemonThreadsNamed("hive-write-validation-%s")));
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
@@ -104,7 +104,6 @@ public class HivePageSinkProvider
         this.hiveSessionProperties = requireNonNull(hiveSessionProperties, "hiveSessionProperties is null");
         this.hiveWriterStats = requireNonNull(hiveWriterStats, "stats is null");
         this.perTransactionMetastoreCacheMaximumSize = config.getPerTransactionMetastoreCacheMaximumSize();
-        this.parquetTimeZone = config.getParquetDateTimeZone();
     }
 
     @Override
@@ -155,7 +154,7 @@ public class HivePageSinkProvider
                 pageSorter,
                 writerSortBufferSize,
                 maxOpenSortFiles,
-                parquetTimeZone,
+                immutablePartitions,
                 session,
                 nodeManager,
                 eventClient,

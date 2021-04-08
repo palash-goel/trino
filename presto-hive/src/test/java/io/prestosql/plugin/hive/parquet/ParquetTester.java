@@ -70,6 +70,7 @@ import org.apache.hadoop.mapred.JobConf;
 import org.apache.parquet.column.ParquetProperties.WriterVersion;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.schema.MessageType;
+import org.joda.time.DateTimeZone;
 
 import java.io.Closeable;
 import java.io.File;
@@ -111,6 +112,7 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
+import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
@@ -137,6 +139,8 @@ import static org.testng.Assert.assertTrue;
 
 public class ParquetTester
 {
+    public static final DateTimeZone HIVE_STORAGE_TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");
+
     private static final int MAX_PRECISION_INT64 = toIntExact(maxPrecision(8));
 
     private static final boolean OPTIMIZED = true;
@@ -525,7 +529,7 @@ public class ParquetTester
             return new SqlDate(((Long) fieldFromCursor).intValue());
         }
         if (TIMESTAMP_MILLIS.equals(type)) {
-            return SqlTimestamp.fromMillis(3, (long) fieldFromCursor);
+            return SqlTimestamp.legacyFromMillis(3, (long) fieldFromCursor, UTC_KEY);
         }
         return fieldFromCursor;
     }
@@ -781,8 +785,9 @@ public class ParquetTester
                 long days = ((SqlDate) value).getDays();
                 type.writeLong(blockBuilder, days);
             }
-            else if (TIMESTAMP_MILLIS.equals(type)) {
-                type.writeLong(blockBuilder, ((SqlTimestamp) value).getEpochMicros());
+            else if (TIMESTAMP.equals(type)) {
+                long millis = ((SqlTimestamp) value).getMillisUtc();
+                type.writeLong(blockBuilder, millis);
             }
             else {
                 if (type instanceof ArrayType) {

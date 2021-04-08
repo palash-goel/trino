@@ -40,7 +40,6 @@ import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.schema.MessageType;
-import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -106,11 +105,7 @@ public final class PredicateUtils
         return new BigDecimal(format("+%s.%s", "9".repeat(decimalType.getPrecision() - decimalType.getScale()), "9".repeat(decimalType.getScale())));
     }
 
-    public static Predicate buildPredicate(
-            MessageType requestedSchema,
-            TupleDomain<ColumnDescriptor> parquetTupleDomain,
-            Map<List<String>, RichColumnDescriptor> descriptorsByPath,
-            DateTimeZone timeZone)
+    public static Predicate buildPredicate(MessageType requestedSchema, TupleDomain<ColumnDescriptor> parquetTupleDomain, Map<List<String>, RichColumnDescriptor> descriptorsByPath)
     {
         ImmutableList.Builder<RichColumnDescriptor> columnReferences = ImmutableList.builder();
         for (String[] paths : requestedSchema.getPaths()) {
@@ -119,7 +114,7 @@ public final class PredicateUtils
                 columnReferences.add(descriptor);
             }
         }
-        return new TupleDomainParquetPredicate(parquetTupleDomain, columnReferences.build(), timeZone);
+        return new TupleDomainParquetPredicate(parquetTupleDomain, columnReferences.build());
     }
 
     public static boolean predicateMatches(Predicate parquetPredicate, BlockMetaData block, ParquetDataSource dataSource, Map<List<String>, RichColumnDescriptor> descriptorsByPath, TupleDomain<ColumnDescriptor> parquetTupleDomain, boolean failOnCorruptedParquetStatistics)

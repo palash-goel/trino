@@ -140,8 +140,7 @@ public final class HiveQueryRunner
                 queryRunner.installPlugin(new TestingHivePlugin(metastore, module));
 
                 Map<String, String> hiveProperties = ImmutableMap.<String, String>builder()
-                        .put("hive.rcfile.time-zone", TIME_ZONE.getID())
-                        .put("hive.parquet.time-zone", TIME_ZONE.getID())
+                        .put("hive.time-zone", TIME_ZONE.getID())
                         .put("hive.max-partitions-per-scan", "1000")
                         .build();
 

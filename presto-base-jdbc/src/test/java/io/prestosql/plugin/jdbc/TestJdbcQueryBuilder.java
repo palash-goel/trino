@@ -26,6 +26,8 @@ import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.predicate.ValueSet;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.SqlTime;
+import io.prestosql.spi.type.SqlTimestamp;
+import io.prestosql.testing.DateTimeTestingUtils;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -68,18 +70,18 @@ import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimeType.TIME;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.DateTimeTestingUtils.sqlTimeOf;
-import static io.prestosql.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
-import static io.prestosql.type.DateTimes.MICROSECONDS_PER_MILLISECOND;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.String.format;
 import static java.time.temporal.ChronoUnit.DAYS;
 import static java.util.function.Function.identity;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
@@ -127,7 +129,7 @@ public class TestJdbcQueryBuilder
                 new JdbcColumnHandle("col_3", JDBC_VARCHAR, VARCHAR),
                 new JdbcColumnHandle("col_4", JDBC_DATE, DATE),
                 new JdbcColumnHandle("col_5", JDBC_TIME, TIME),
-                new JdbcColumnHandle("col_6", JDBC_TIMESTAMP, TIMESTAMP_MILLIS),
+                new JdbcColumnHandle("col_6", JDBC_TIMESTAMP, TIMESTAMP),
                 new JdbcColumnHandle("col_7", JDBC_TINYINT, TINYINT),
                 new JdbcColumnHandle("col_8", JDBC_SMALLINT, SMALLINT),
                 new JdbcColumnHandle("col_9", JDBC_INTEGER, INTEGER),
@@ -367,11 +369,11 @@ public class TestJdbcQueryBuilder
             throws SQLException
     {
         TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
-                columns.get(6), Domain.create(SortedRangeSet.copyOf(TIMESTAMP_MILLIS,
+                columns.get(6), Domain.create(SortedRangeSet.copyOf(TIMESTAMP,
                         ImmutableList.of(
-                                Range.equal(TIMESTAMP_MILLIS, toPrestoTimestamp(2016, 6, 3, 0, 23, 37)),
-                                Range.equal(TIMESTAMP_MILLIS, toPrestoTimestamp(2016, 10, 19, 16, 23, 37)),
-                                Range.range(TIMESTAMP_MILLIS, toPrestoTimestamp(2016, 6, 7, 8, 23, 37), false, toPrestoTimestamp(2016, 6, 9, 12, 23, 37), true))),
+                                Range.equal(TIMESTAMP, toPrestoTimestamp(2016, 6, 3, 0, 23, 37)),
+                                Range.equal(TIMESTAMP, toPrestoTimestamp(2016, 10, 19, 16, 23, 37)),
+                                Range.range(TIMESTAMP, toPrestoTimestamp(2016, 6, 7, 8, 23, 37), false, toPrestoTimestamp(2016, 6, 9, 12, 23, 37), true))),
                         false)));
 
         Connection connection = database.getConnection();
@@ -510,7 +512,11 @@ public class TestJdbcQueryBuilder
 
     private static long toPrestoTimestamp(int year, int month, int day, int hour, int minute, int second)
     {
-        return sqlTimestampOf(3, year, month, day, hour, minute, second, 0).getMillis() * MICROSECONDS_PER_MILLISECOND;
+        SqlTimestamp sqlTimestamp = DateTimeTestingUtils.sqlTimestampOf(3, year, month, day, hour, minute, second, 0, UTC, UTC_KEY, SESSION);
+        if (SESSION.isLegacyTimestamp()) {
+            return sqlTimestamp.getMillisUtc();
+        }
+        return sqlTimestamp.getMillis();
     }
 
     private static Timestamp toTimestamp(int year, int month, int day, int hour, int minute, int second)
