@@ -127,6 +127,11 @@ class ShortTimestampType
         }
 
         long epochMicros = getLong(block, position);
-        return SqlTimestamp.newInstance(getPrecision(), epochMicros, 0);
+        if (session.isLegacyTimestamp()) {
+            return SqlTimestamp.newLegacyInstance(getPrecision(), epochMicros, 0, session.getTimeZoneKey());
+        }
+        else {
+            return SqlTimestamp.newInstance(getPrecision(), epochMicros, 0);
+        }
     }
 }

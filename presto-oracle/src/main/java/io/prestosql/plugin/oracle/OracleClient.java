@@ -340,7 +340,7 @@ public class OracleClient
 
             // This mapping covers both DATE and TIMESTAMP, as Oracle's DATE has second precision.
             case OracleTypes.TIMESTAMP:
-                return Optional.of(oracleTimestampColumnMapping());
+                return Optional.of(oracleTimestampColumnMapping(session));
             case OracleTypes.TIMESTAMPTZ:
                 return Optional.of(oracleTimestampWithTimeZoneColumnMapping());
         }
@@ -373,22 +373,34 @@ public class OracleClient
         };
     }
 
-    public static LongWriteFunction oracleTimestampWriteFunction()
+    public static LongWriteFunction oracleTimestampWriteFunction(ConnectorSession session)
     {
+        if (session.isLegacyTimestamp()) {
+            return (statement, index, utcMillis) -> {
+                long dateTimeAsUtcMillis = Instant.ofEpochMilli(utcMillis)
+                        .atZone(ZoneId.of(session.getTimeZoneKey().getId()))
+                        .withZoneSameLocal(ZoneOffset.UTC)
+                        .toInstant().toEpochMilli();
+                statement.setObject(index, new oracle.sql.TIMESTAMP(new Timestamp(dateTimeAsUtcMillis), Calendar.getInstance(TimeZone.getTimeZone("UTC"))));
+            };
+        }
         return (statement, index, utcMillis) -> {
             statement.setObject(index, new oracle.sql.TIMESTAMP(new Timestamp(epochMicrosToMillisWithRounding(utcMillis)), Calendar.getInstance(TimeZone.getTimeZone("UTC"))));
         };
     }
 
-    public static ColumnMapping oracleTimestampColumnMapping()
+    public static ColumnMapping oracleTimestampColumnMapping(ConnectorSession session)
     {
         return ColumnMapping.longMapping(
                 TIMESTAMP_MILLIS,
                 (resultSet, columnIndex) -> {
                     LocalDateTime timestamp = resultSet.getObject(columnIndex, LocalDateTime.class);
+                    if (session.isLegacyTimestamp()) {
+                        return timestamp.atZone(ZoneId.of(session.getTimeZoneKey().getId())).toInstant().toEpochMilli();
+                    }
                     return timestamp.toInstant(ZoneOffset.UTC).toEpochMilli() * MICROSECONDS_PER_MILLISECOND;
                 },
-                oracleTimestampWriteFunction(),
+                oracleTimestampWriteFunction(session),
                 OracleClient::fullPushdownIfSupported);
     }
 
@@ -471,7 +483,7 @@ public class OracleClient
             return WriteMapping.sliceMapping(dataType, longDecimalWriteFunction((DecimalType) type));
         }
         if (type.equals(TIMESTAMP_MILLIS)) {
-            return WriteMapping.longMapping("timestamp(3)", oracleTimestampWriteFunction());
+            return WriteMapping.longMapping("timestamp(3)", oracleTimestampWriteFunction(session));
         }
         WriteMapping writeMapping = WRITE_MAPPINGS.get(type);
         if (writeMapping != null) {

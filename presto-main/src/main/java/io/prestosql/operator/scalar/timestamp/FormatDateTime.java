@@ -30,6 +30,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.type.DateTimes.round;
 import static io.prestosql.type.DateTimes.scaleEpochMicrosToMillis;
+import static io.prestosql.util.DateTimeZoneIndex.getChronologyFromSession;
 
 @Description("Formats the given time by the given format")
 @ScalarFunction("format_datetime")
@@ -48,7 +49,7 @@ public class FormatDateTime
             // Timezone is unknown for TIMESTAMP w/o TZ so it cannot be printed out.
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "format_datetime for TIMESTAMP type, cannot use 'Z' nor 'z' in format, as this type does not contain TZ information");
         }
-        ISOChronology chronology = ISOChronology.getInstanceUTC();
+        ISOChronology chronology = getChronologyFromSession(session);
 
         try {
             return utf8Slice(DateTimeFormat.forPattern(formatString.toStringUtf8())

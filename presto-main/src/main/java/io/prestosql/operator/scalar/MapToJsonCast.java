@@ -22,6 +22,7 @@ import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.FunctionBinding;
 import io.prestosql.metadata.SqlOperator;
 import io.prestosql.spi.block.Block;
+import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
@@ -86,7 +87,7 @@ public class MapToJsonCast
     }
 
     @UsedByGeneratedCode
-    public static Slice toJson(ObjectKeyProvider provider, JsonGeneratorWriter writer, Block block)
+    public static Slice toJson(ObjectKeyProvider provider, JsonGeneratorWriter writer, ConnectorSession session, Block block)
     {
         try {
             Map<String, Integer> orderedKeyToValuePosition = new TreeMap<>();
@@ -100,7 +101,7 @@ public class MapToJsonCast
                 jsonGenerator.writeStartObject();
                 for (Map.Entry<String, Integer> entry : orderedKeyToValuePosition.entrySet()) {
                     jsonGenerator.writeFieldName(entry.getKey());
-                    writer.writeJsonValue(jsonGenerator, block, entry.getValue());
+                    writer.writeJsonValue(jsonGenerator, block, entry.getValue(), session);
                 }
                 jsonGenerator.writeEndObject();
             }

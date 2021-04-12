@@ -13,15 +13,19 @@
  */
 package io.prestosql.operator.scalar.timestamp;
 
+import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.function.LiteralParameters;
 import io.prestosql.spi.function.ScalarOperator;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.LongTimestamp;
 import io.prestosql.spi.type.StandardTypes;
+import org.joda.time.chrono.ISOChronology;
 
 import java.util.concurrent.TimeUnit;
 
 import static io.prestosql.spi.function.OperatorType.CAST;
+import static io.prestosql.type.DateTimes.scaleEpochMillisToMicros;
+import static io.prestosql.util.DateTimeZoneIndex.getChronology;
 
 @ScalarOperator(CAST)
 public final class DateToTimestampCast
@@ -30,15 +34,24 @@ public final class DateToTimestampCast
 
     @LiteralParameters("p")
     @SqlType("timestamp(p)")
-    public static long castToShort(@SqlType(StandardTypes.DATE) long date)
+    public static long castToShort(ConnectorSession session, @SqlType(StandardTypes.DATE) long date)
     {
+        if (session.isLegacyTimestamp()) {
+            long utcMillis = TimeUnit.DAYS.toMillis(date);
+
+            // date is encoded as milliseconds at midnight in UTC
+            // convert to midnight in the session timezone
+            ISOChronology chronology = getChronology(session.getTimeZoneKey());
+            utcMillis -= chronology.getZone().getOffset(utcMillis);
+            return scaleEpochMillisToMicros(utcMillis);
+        }
         return TimeUnit.DAYS.toMicros(date);
     }
 
     @LiteralParameters("p")
     @SqlType("timestamp(p)")
-    public static LongTimestamp castToLong(@SqlType(StandardTypes.DATE) long date)
+    public static LongTimestamp castToLong(ConnectorSession session, @SqlType(StandardTypes.DATE) long date)
     {
-        return new LongTimestamp(castToShort(date), 0);
+        return new LongTimestamp(castToShort(session, date), 0);
     }
 }

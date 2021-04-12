@@ -13,6 +13,8 @@
  */
 package io.prestosql.testing;
 
+import io.prestosql.Session;
+import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.SqlDate;
 import io.prestosql.spi.type.SqlTime;
 import io.prestosql.spi.type.SqlTimeWithTimeZone;
@@ -20,6 +22,7 @@ import io.prestosql.spi.type.SqlTimestamp;
 import io.prestosql.spi.type.SqlTimestampWithTimeZone;
 import io.prestosql.spi.type.TimeZoneKey;
 import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -30,6 +33,7 @@ import static io.prestosql.type.DateTimes.MILLISECONDS_PER_SECOND;
 import static io.prestosql.type.DateTimes.NANOSECONDS_PER_MILLISECOND;
 import static io.prestosql.type.DateTimes.PICOSECONDS_PER_NANOSECOND;
 import static io.prestosql.type.DateTimes.PICOSECONDS_PER_SECOND;
+import static io.prestosql.util.DateTimeZoneIndex.getDateTimeZone;
 import static java.lang.Math.toIntExact;
 import static java.time.temporal.ChronoField.EPOCH_DAY;
 import static java.util.concurrent.TimeUnit.DAYS;
@@ -76,8 +80,28 @@ public final class DateTimeTestingUtils
             int hourOfDay,
             int minuteOfHour,
             int secondOfMinute,
-            int millisOfSecond)
+            int millisOfSecond,
+            Session session)
     {
+        return sqlTimestampOf(precision, year, monthOfYear, dayOfMonth, hourOfDay, minuteOfHour, secondOfMinute, millisOfSecond, getDateTimeZone(session.getTimeZoneKey()), session.getTimeZoneKey(), session.toConnectorSession());
+    }
+
+    public static SqlTimestamp sqlTimestampOf(
+            int precision,
+            int year,
+            int monthOfYear,
+            int dayOfMonth,
+            int hourOfDay,
+            int minuteOfHour,
+            int secondOfMinute,
+            int millisOfSecond,
+            DateTimeZone baseZone,
+            TimeZoneKey timestampZone,
+            ConnectorSession session)
+    {
+        if (session.isLegacyTimestamp()) {
+            return SqlTimestamp.legacyFromMillis(precision, new DateTime(year, monthOfYear, dayOfMonth, hourOfDay, minuteOfHour, secondOfMinute, millisOfSecond, baseZone).getMillis(), timestampZone);
+        }
         return sqlTimestampOf(precision, LocalDateTime.of(year, monthOfYear, dayOfMonth, hourOfDay, minuteOfHour, secondOfMinute, millisToNanos(millisOfSecond)));
     }
 
@@ -86,34 +110,37 @@ public final class DateTimeTestingUtils
      */
     public static SqlTimestamp sqlTimestampOf(int precision, LocalDateTime dateTime)
     {
-        return sqlTimestampOf(precision, DAYS.toMillis(dateTime.toLocalDate().toEpochDay()) + NANOSECONDS.toMillis(dateTime.toLocalTime().toNanoOfDay()));
+        return SqlTimestamp.fromMillis(precision, DAYS.toMillis(dateTime.toLocalDate().toEpochDay()) + NANOSECONDS.toMillis(dateTime.toLocalTime().toNanoOfDay()));
     }
 
-    public static SqlTimestamp sqlTimestampOf(int precision, DateTime dateTime)
+    public static SqlTimestamp sqlTimestampOf(int precision, DateTime dateTime, Session session)
     {
-        return sqlTimestampOf(precision, dateTime.getMillis());
-    }
-
-    /**
-     * @deprecated Use {@link #sqlTimestampOf(int precision, DateTime dateTime)}
-     */
-    @Deprecated
-    public static SqlTimestamp sqlTimestampOf(DateTime dateTime)
-    {
-        return sqlTimestampOf(dateTime.getMillis());
+        return sqlTimestampOf(precision, dateTime.getMillis(), session.toConnectorSession());
     }
 
     /**
-     * @deprecated Use {@link #sqlTimestampOf(int precision, long millis)}
+     * @deprecated Use {@link #sqlTimestampOf(int precision, DateTime dateTime, Session session)}
      */
     @Deprecated
-    public static SqlTimestamp sqlTimestampOf(long millis)
+    public static SqlTimestamp sqlTimestampOf(DateTime dateTime, Session session)
     {
-        return sqlTimestampOf(3, millis);
+        return sqlTimestampOf(dateTime.getMillis(), session.toConnectorSession());
     }
 
-    public static SqlTimestamp sqlTimestampOf(int precision, long millis)
+    /**
+     * @deprecated Use {@link #sqlTimestampOf(int precision, long millis, ConnectorSession session)}
+     */
+    @Deprecated
+    public static SqlTimestamp sqlTimestampOf(long millis, ConnectorSession session)
     {
+        return sqlTimestampOf(3, millis, session);
+    }
+
+    public static SqlTimestamp sqlTimestampOf(int precision, long millis, ConnectorSession session)
+    {
+        if (session.isLegacyTimestamp()) {
+            return SqlTimestamp.legacyFromMillis(precision, millis, session.getTimeZoneKey());
+        }
         return SqlTimestamp.fromMillis(precision, millis);
     }
 

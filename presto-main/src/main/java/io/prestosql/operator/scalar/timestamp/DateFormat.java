@@ -22,10 +22,10 @@ import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.LongTimestamp;
 import io.prestosql.spi.type.StandardTypes;
-import org.joda.time.chrono.ISOChronology;
 
 import static io.prestosql.operator.scalar.DateTimeFunctions.dateFormat;
 import static io.prestosql.type.DateTimes.epochMicrosToMillisWithRounding;
+import static io.prestosql.util.DateTimeZoneIndex.getChronologyFromSession;
 
 @ScalarFunction
 @Description("Formats the given timestamp by the given format")
@@ -40,7 +40,7 @@ public class DateFormat
         // TODO: currently, date formatting only supports up to millis, so round to that unit
         timestamp = epochMicrosToMillisWithRounding(timestamp);
 
-        return dateFormat(ISOChronology.getInstanceUTC(), session.getLocale(), timestamp, formatString);
+        return dateFormat(getChronologyFromSession(session), session.getLocale(), timestamp, formatString);
     }
 
     @LiteralParameters({"x", "p"})

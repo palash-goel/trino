@@ -77,6 +77,10 @@ public final class TimeType
             return null;
         }
 
+        if (session.isLegacyTimestamp()) {
+            return SqlTime.newInstance(precision, block.getLong(position, 0), session.getTimeZoneKey());
+        }
+
         return SqlTime.newInstance(precision, block.getLong(position, 0));
     }
 }

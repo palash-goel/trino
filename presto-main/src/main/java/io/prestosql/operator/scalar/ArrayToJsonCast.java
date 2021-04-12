@@ -21,6 +21,7 @@ import io.airlift.slice.SliceOutput;
 import io.prestosql.metadata.FunctionBinding;
 import io.prestosql.metadata.SqlOperator;
 import io.prestosql.spi.block.Block;
+import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
@@ -75,14 +76,14 @@ public class ArrayToJsonCast
                 methodHandle);
     }
 
-    public static Slice toJson(JsonGeneratorWriter writer, Block block)
+    public static Slice toJson(JsonGeneratorWriter writer, ConnectorSession session, Block block)
     {
         try {
             SliceOutput output = new DynamicSliceOutput(40);
             try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_FACTORY, output)) {
                 jsonGenerator.writeStartArray();
                 for (int i = 0; i < block.getPositionCount(); i++) {
-                    writer.writeJsonValue(jsonGenerator, block, i);
+                    writer.writeJsonValue(jsonGenerator, block, i, session);
                 }
                 jsonGenerator.writeEndArray();
             }

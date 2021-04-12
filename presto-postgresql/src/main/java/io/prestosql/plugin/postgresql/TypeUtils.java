@@ -40,8 +40,10 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.fromPrestoLegacyTimestamp;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.fromPrestoTimestamp;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -196,7 +198,10 @@ final class TypeUtils
         }
 
         if (prestoType instanceof TimestampType && ((TimestampType) prestoType).isShort()) {
-            TimestampType timestampType = (TimestampType) prestoType;
+            if (session.isLegacyTimestamp()) {
+                ZoneId sessionZone = ZoneId.of(session.getTimeZoneKey().getId());
+                return toPgTimestamp(fromPrestoLegacyTimestamp((long) prestoNative, sessionZone));
+            }
             return toPgTimestamp(fromPrestoTimestamp((long) prestoNative));
         }
 

@@ -67,6 +67,12 @@ public final class TestingSession
         }
 
         @Override
+        public boolean isLegacyTimestamp()
+        {
+            return true;
+        }
+
+        @Override
         public Optional<String> getTraceToken()
         {
             return Optional.empty();

@@ -20,9 +20,11 @@ import io.prestosql.spi.function.ScalarOperator;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.LongTimeWithTimeZone;
 import io.prestosql.spi.type.LongTimestamp;
+import io.prestosql.spi.type.TimeZoneKey;
 
 import static io.prestosql.spi.function.OperatorType.CAST;
 import static io.prestosql.spi.type.DateTimeEncoding.packTimeWithTimeZone;
+import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static io.prestosql.type.DateTimes.MICROSECONDS_PER_DAY;
 import static io.prestosql.type.DateTimes.NANOSECONDS_PER_DAY;
 import static io.prestosql.type.DateTimes.NANOSECONDS_PER_MICROSECOND;
@@ -33,6 +35,7 @@ import static io.prestosql.type.DateTimes.rescale;
 import static io.prestosql.type.DateTimes.round;
 import static java.lang.Math.floorMod;
 
+//TODO
 @ScalarOperator(CAST)
 public final class TimestampToTimeWithTimezoneCast
 {
@@ -51,7 +54,7 @@ public final class TimestampToTimeWithTimezoneCast
 
         nanos = round(nanos, (int) (9 - targetPrecision)) % NANOSECONDS_PER_DAY;
 
-        return packTimeWithTimeZone(nanos, getOffsetMinutes(session.getStart(), session.getTimeZoneKey()));
+        return packTimeWithTimeZone(nanos, getOffsetMinutesFromSession(session));
     }
 
     @LiteralParameters({"sourcePrecision", "targetPrecision"})
@@ -67,7 +70,8 @@ public final class TimestampToTimeWithTimezoneCast
         picos = round(picos, (int) (12 - targetPrecision));
 
         long nanos = rescale(picos, 12, 9) % NANOSECONDS_PER_DAY;
-        return packTimeWithTimeZone(nanos, getOffsetMinutes(session.getStart(), session.getTimeZoneKey()));
+
+        return packTimeWithTimeZone(nanos, getOffsetMinutesFromSession(session));
     }
 
     @LiteralParameters({"sourcePrecision", "targetPrecision"})
@@ -79,7 +83,7 @@ public final class TimestampToTimeWithTimezoneCast
         // source precision <= 6
         // target precision > 9
         long picos = floorMod(timestamp, MICROSECONDS_PER_DAY) * PICOSECONDS_PER_MICROSECOND;
-        return new LongTimeWithTimeZone(picos, getOffsetMinutes(session.getStart(), session.getTimeZoneKey()));
+        return new LongTimeWithTimeZone(picos, getOffsetMinutesFromSession(session));
     }
 
     @LiteralParameters({"sourcePrecision", "targetPrecision"})
@@ -95,6 +99,13 @@ public final class TimestampToTimeWithTimezoneCast
 
         picos = round(picos, (int) (12 - targetPrecision)) % PICOSECONDS_PER_DAY;
 
-        return new LongTimeWithTimeZone(picos, getOffsetMinutes(session.getStart(), session.getTimeZoneKey()));
+        return new LongTimeWithTimeZone(picos, getOffsetMinutesFromSession(session));
+    }
+
+    private static int getOffsetMinutesFromSession(ConnectorSession session)
+    {
+        // Legacy timestamp already contains the offset added to timestamp. Hence, we do not need to add it again
+        TimeZoneKey zoneKey = session.isLegacyTimestamp() ? UTC_KEY : session.getTimeZoneKey();
+        return getOffsetMinutes(session.getStart(), zoneKey);
     }
 }

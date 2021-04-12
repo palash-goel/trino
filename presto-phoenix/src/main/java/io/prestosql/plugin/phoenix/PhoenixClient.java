@@ -320,7 +320,7 @@ public class PhoenixClient
             return WriteMapping.longMapping("float", realWriteFunction());
         }
         if (TIME.equals(type)) {
-            return WriteMapping.longMapping("time", timeWriteFunctionUsingSqlTime());
+            return WriteMapping.longMapping("time", timeWriteFunctionUsingSqlTime(session));
         }
         // Phoenix doesn't support _WITH_TIME_ZONE
         if (TIME_WITH_TIME_ZONE.equals(type) || TIMESTAMP_TZ_MILLIS.equals(type)) {

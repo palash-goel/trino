@@ -16,6 +16,7 @@ package io.prestosql.spi.type;
 import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static io.prestosql.spi.type.TimeType.MAX_PRECISION;
 import static io.prestosql.spi.type.Timestamps.MINUTES_PER_HOUR;
@@ -33,8 +34,14 @@ public final class SqlTime
 {
     private final int precision;
     private final long picos;
+    private final Optional<TimeZoneKey> sessionTimeZoneKey;
 
     public static SqlTime newInstance(int precision, long picos)
+    {
+        return newInstance(precision, picos, null);
+    }
+
+    public static SqlTime newInstance(int precision, long picos, TimeZoneKey sessionTimeZoneKey)
     {
         if (rescale(rescale(picos, 12, precision), precision, 12) != picos) {
             throw new IllegalArgumentException("picos contains data beyond specified precision: " + precision);
@@ -43,18 +50,38 @@ public final class SqlTime
             throw new IllegalArgumentException("picos is out of range: " + picos);
         }
 
-        return new SqlTime(precision, picos);
+        return new SqlTime(precision, picos, sessionTimeZoneKey);
     }
 
     private SqlTime(int precision, long picos)
     {
+        this(precision, picos, null);
+    }
+
+    private SqlTime(int precision, long picos, TimeZoneKey sessionTimeZoneKey)
+    {
         this.precision = precision;
         this.picos = picos;
+        this.sessionTimeZoneKey = Optional.ofNullable(sessionTimeZoneKey);
     }
 
     public long getPicos()
     {
         return picos;
+    }
+
+    /**
+     * @deprecated applicable in legacy timestamp semantics only
+     */
+    @Deprecated
+    public Optional<TimeZoneKey> getSessionTimeZoneKey()
+    {
+        return sessionTimeZoneKey;
+    }
+
+    public boolean isLegacyTimestamp()
+    {
+        return sessionTimeZoneKey.isPresent();
     }
 
     public SqlTime roundTo(int precision)
@@ -73,19 +100,21 @@ public final class SqlTime
         }
         SqlTime sqlTime = (SqlTime) o;
         return precision == sqlTime.precision &&
-                picos == sqlTime.picos;
+                picos == sqlTime.picos &&
+                Objects.equals(this.sessionTimeZoneKey, sqlTime.sessionTimeZoneKey);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(precision, picos);
+        return Objects.hash(precision, picos, sessionTimeZoneKey);
     }
 
     @JsonValue
     @Override
     public String toString()
     {
+        //TODO
         StringBuilder builder = new StringBuilder();
         builder.append(format(
                 "%02d:%02d:%02d",

@@ -1550,31 +1550,31 @@ public class TestExpressionCompiler
     {
         switch (field) {
             case YEAR:
-                return ExtractYear.extract(value);
+                return ExtractYear.extract(session, value);
             case QUARTER:
-                return ExtractQuarter.extract(value);
+                return ExtractQuarter.extract(session, value);
             case MONTH:
-                return ExtractMonth.extract(value);
+                return ExtractMonth.extract(session, value);
             case WEEK:
-                return ExtractWeekOfYear.extract(value);
+                return ExtractWeekOfYear.extract(session, value);
             case DAY:
             case DAY_OF_MONTH:
-                return ExtractDay.extract(value);
+                return ExtractDay.extract(session, value);
             case DAY_OF_WEEK:
             case DOW:
-                return ExtractDayOfWeek.extract(value);
+                return ExtractDayOfWeek.extract(session, value);
             case YEAR_OF_WEEK:
             case YOW:
-                return ExtractYearOfWeek.extract(value);
+                return ExtractYearOfWeek.extract(session, value);
             case DAY_OF_YEAR:
             case DOY:
-                return ExtractDayOfYear.extract(value);
+                return ExtractDayOfYear.extract(session, value);
             case HOUR:
-                return ExtractHour.extract(value);
+                return ExtractHour.extract(session, value);
             case MINUTE:
-                return ExtractMinute.extract(value);
+                return ExtractMinute.extract(session, value);
             case SECOND:
-                return ExtractSecond.extract(value);
+                return ExtractSecond.extract(session, value);
         }
         throw new AssertionError("Unhandled field: " + field);
     }

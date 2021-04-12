@@ -15,6 +15,7 @@ package io.prestosql.operator.scalar.timestamp;
 
 import io.airlift.slice.Slice;
 import io.prestosql.operator.scalar.DateTimeFunctions;
+import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.function.Description;
 import io.prestosql.spi.function.LiteralParameter;
 import io.prestosql.spi.function.LiteralParameters;
@@ -28,6 +29,7 @@ import static io.prestosql.type.DateTimes.getMicrosOfMilli;
 import static io.prestosql.type.DateTimes.round;
 import static io.prestosql.type.DateTimes.scaleEpochMicrosToMillis;
 import static io.prestosql.type.DateTimes.scaleEpochMillisToMicros;
+import static io.prestosql.util.DateTimeZoneIndex.getChronology;
 import static java.lang.Math.toIntExact;
 
 @Description("Add the specified amount of time to the given timestamp")
@@ -40,6 +42,7 @@ public class DateAdd
     @SqlType("timestamp(p)")
     public static long add(
             @LiteralParameter("p") long precision,
+            ConnectorSession session,
             @SqlType("varchar(x)") Slice unit,
             @SqlType(StandardTypes.BIGINT) long value,
             @SqlType("timestamp(p)") long timestamp)
@@ -47,7 +50,8 @@ public class DateAdd
         long epochMillis = scaleEpochMicrosToMillis(timestamp);
         int microsOfMilli = getMicrosOfMilli(timestamp);
 
-        epochMillis = DateTimeFunctions.getTimestampField(ISOChronology.getInstanceUTC(), unit).add(epochMillis, toIntExact(value));
+        ISOChronology chronology = session.isLegacyTimestamp() ? getChronology(session.getTimeZoneKey()) : ISOChronology.getInstanceUTC();
+        epochMillis = DateTimeFunctions.getTimestampField(chronology, unit).add(epochMillis, toIntExact(value));
 
         if (precision <= 3) {
             epochMillis = round(epochMillis, (int) (3 - precision));
@@ -59,12 +63,13 @@ public class DateAdd
     @LiteralParameters({"x", "p"})
     @SqlType("timestamp(p)")
     public static LongTimestamp add(
+            ConnectorSession session,
             @SqlType("varchar(x)") Slice unit,
             @SqlType(StandardTypes.BIGINT) long value,
             @SqlType("timestamp(p)") LongTimestamp timestamp)
     {
         return new LongTimestamp(
-                add(6, unit, value, timestamp.getEpochMicros()),
+                add(6, session, unit, value, timestamp.getEpochMicros()),
                 timestamp.getPicosOfMicro());
     }
 }

@@ -13,6 +13,7 @@
  */
 package io.prestosql.operator.scalar.timestamptz;
 
+import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.function.LiteralParameter;
 import io.prestosql.spi.function.LiteralParameters;
 import io.prestosql.spi.function.ScalarOperator;
@@ -26,11 +27,13 @@ import static io.prestosql.spi.function.OperatorType.CAST;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackZoneKey;
 import static io.prestosql.spi.type.TimeType.MAX_PRECISION;
+import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.prestosql.type.DateTimes.PICOSECONDS_PER_DAY;
 import static io.prestosql.type.DateTimes.rescale;
 import static io.prestosql.type.DateTimes.round;
 
+//TODO
 @ScalarOperator(CAST)
 public final class TimestampWithTimeZoneToTimeCast
 {
@@ -40,10 +43,11 @@ public final class TimestampWithTimeZoneToTimeCast
     @SqlType("time(targetPrecision)")
     public static long cast(
             @LiteralParameter("targetPrecision") long targetPrecision,
+            ConnectorSession session,
             @SqlType("timestamp(sourcePrecision) with time zone") long packedEpochMillis)
     {
         long epochMillis = unpackMillisUtc(packedEpochMillis);
-        ZoneId zoneId = unpackZoneKey(packedEpochMillis).getZoneId();
+        ZoneId zoneId = session.isLegacyTimestamp() ? UTC_KEY.getZoneId() : unpackZoneKey(packedEpochMillis).getZoneId();
         return convert(targetPrecision, epochMillis, 0, zoneId);
     }
 
@@ -51,9 +55,11 @@ public final class TimestampWithTimeZoneToTimeCast
     @SqlType("time(targetPrecision)")
     public static long cast(
             @LiteralParameter("targetPrecision") long targetPrecision,
+            ConnectorSession session,
             @SqlType("timestamp(sourcePrecision) with time zone") LongTimestampWithTimeZone timestamp)
     {
-        return convert(targetPrecision, timestamp.getEpochMillis(), timestamp.getPicosOfMilli(), getTimeZoneKey(timestamp.getTimeZoneKey()).getZoneId());
+        ZoneId zoneId = session.isLegacyTimestamp() ? UTC_KEY.getZoneId() : getTimeZoneKey(timestamp.getTimeZoneKey()).getZoneId();
+        return convert(targetPrecision, timestamp.getEpochMillis(), timestamp.getPicosOfMilli(), zoneId);
     }
 
     private static long convert(long targetPrecision, long epochMillis, long picosOfMilli, ZoneId zoneId)

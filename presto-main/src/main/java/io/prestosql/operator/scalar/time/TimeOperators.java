@@ -18,6 +18,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.XxHash64;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
+import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.function.BlockIndex;
 import io.prestosql.spi.function.BlockPosition;
 import io.prestosql.spi.function.IsNull;
@@ -29,6 +30,7 @@ import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.AbstractLongType;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.type.Constraint;
+import org.joda.time.chrono.ISOChronology;
 
 import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.prestosql.spi.function.OperatorType.ADD;
@@ -44,6 +46,7 @@ import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.prestosql.spi.function.OperatorType.NOT_EQUAL;
 import static io.prestosql.spi.function.OperatorType.SUBTRACT;
 import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
+import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.TimeType.MAX_PRECISION;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.type.DateTimes.MINUTES_PER_HOUR;
@@ -57,6 +60,7 @@ import static io.prestosql.type.DateTimes.parseTime;
 import static io.prestosql.type.DateTimes.rescaleWithRounding;
 import static io.prestosql.type.DateTimes.round;
 import static io.prestosql.type.DateTimes.scaleFactor;
+import static io.prestosql.util.DateTimeZoneIndex.getChronology;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -124,6 +128,24 @@ public final class TimeOperators
     public static boolean greaterThanOrEqual(@SqlType("time(p)") long left, @SqlType("time(p)") long right)
     {
         return left >= right;
+    }
+
+    @ScalarOperator(CAST)
+    @SqlType(StandardTypes.TIME_WITH_TIME_ZONE)
+    @Deprecated
+    public static long castToTimeWithTimeZone(ConnectorSession session, @SqlType(StandardTypes.TIME) long value)
+    {
+        if (session.isLegacyTimestamp()) {
+            return packDateTimeWithZone(value, session.getTimeZoneKey());
+        }
+
+        ISOChronology localChronology = getChronology(session.getTimeZoneKey());
+        // This cast does treat TIME as wall time in session TZ. This means that in order to get
+        // its UTC representation we need to shift the value by the offset of TZ.
+        // We use value offset in this place to be sure that we will have same hour represented
+        // in TIME WITH TIME ZONE. Calculating real TZ offset will happen when really required.
+        // This is done due to inadequate TIME WITH TIME ZONE representation.
+        return packDateTimeWithZone(localChronology.getZone().convertLocalToUTC(value, false), session.getTimeZoneKey());
     }
 
     @ScalarOperator(CAST)
@@ -250,9 +272,10 @@ public final class TimeOperators
     @SqlType("varchar(x)")
     public static Slice castToVarchar(@LiteralParameter("p") long precision, @SqlType("time(p)") long value)
     {
+        //TODO
         int size = (int) (8 + // hour:minute:second
-                        (precision > 0 ? 1 : 0) + // period
-                        precision); // fraction
+                (precision > 0 ? 1 : 0) + // period
+                precision); // fraction
 
         DynamicSliceOutput output = new DynamicSliceOutput(size);
 

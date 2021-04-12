@@ -14,16 +14,17 @@
 package io.prestosql.operator.scalar.timestamp;
 
 import io.airlift.slice.Slice;
+import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.function.Description;
 import io.prestosql.spi.function.LiteralParameters;
 import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.LongTimestamp;
 import io.prestosql.spi.type.StandardTypes;
-import org.joda.time.chrono.ISOChronology;
 
 import static io.prestosql.operator.scalar.DateTimeFunctions.getTimestampField;
 import static io.prestosql.type.DateTimes.scaleEpochMicrosToMillis;
+import static io.prestosql.util.DateTimeZoneIndex.getChronologyFromSession;
 
 @Description("Difference of the given times in the given unit")
 @ScalarFunction("date_diff")
@@ -34,6 +35,7 @@ public class DateDiff
     @LiteralParameters({"x", "p"})
     @SqlType(StandardTypes.BIGINT)
     public static long diff(
+            ConnectorSession session,
             @SqlType("varchar(x)") Slice unit,
             @SqlType("timestamp(p)") long timestamp1,
             @SqlType("timestamp(p)") long timestamp2)
@@ -41,17 +43,18 @@ public class DateDiff
         long epochMillis1 = scaleEpochMicrosToMillis(timestamp1);
         long epochMillis2 = scaleEpochMicrosToMillis(timestamp2);
 
-        return getTimestampField(ISOChronology.getInstanceUTC(), unit).getDifferenceAsLong(epochMillis2, epochMillis1);
+        return getTimestampField(getChronologyFromSession(session), unit).getDifferenceAsLong(epochMillis2, epochMillis1);
     }
 
     @LiteralParameters({"x", "p"})
     @SqlType(StandardTypes.BIGINT)
     public static long diff(
+            ConnectorSession session,
             @SqlType("varchar(x)") Slice unit,
             @SqlType("timestamp(p)") LongTimestamp timestamp1,
             @SqlType("timestamp(p)") LongTimestamp timestamp2)
     {
         // smallest unit of date_diff is "millisecond", so anything in the fraction is irrelevant
-        return diff(unit, timestamp1.getEpochMicros(), timestamp2.getEpochMicros());
+        return diff(session, unit, timestamp1.getEpochMicros(), timestamp2.getEpochMicros());
     }
 }

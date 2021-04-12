@@ -13,6 +13,7 @@
  */
 package io.prestosql.util;
 
+import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.DateTimeEncoding;
 import io.prestosql.spi.type.TimeZoneKey;
 import org.joda.time.DateTime;
@@ -55,6 +56,11 @@ public final class DateTimeZoneIndex
     public static ISOChronology getChronology(TimeZoneKey zoneKey)
     {
         return CHRONOLOGIES[zoneKey.getKey()];
+    }
+
+    public static ISOChronology getChronologyFromSession(ConnectorSession session)
+    {
+        return session.isLegacyTimestamp() ? getChronology(session.getTimeZoneKey()) : ISOChronology.getInstanceUTC();
     }
 
     public static ISOChronology unpackChronology(long timestampWithTimeZone)

@@ -109,11 +109,13 @@ public final class TimestampToTimestampWithTimezoneCast
 
     private static long toShort(ConnectorSession session, long epochMillis)
     {
-        // This cast does treat TIMESTAMP as wall time in session TZ. This means that in order to get
-        // its UTC representation we need to shift the value by the offset of TZ.
-        epochMillis = getChronology(session.getTimeZoneKey())
-                .getZone()
-                .convertLocalToUTC(epochMillis, false);
+        if (!session.isLegacyTimestamp()) {
+            // This cast does treat TIMESTAMP as wall time in session TZ. This means that in order to get
+            // its UTC representation we need to shift the value by the offset of TZ.
+            epochMillis = getChronology(session.getTimeZoneKey())
+                    .getZone()
+                    .convertLocalToUTC(epochMillis, false);
+        }
 
         try {
             return packDateTimeWithZone(epochMillis, session.getTimeZoneKey());
@@ -125,11 +127,15 @@ public final class TimestampToTimestampWithTimezoneCast
 
     private static LongTimestampWithTimeZone toLong(ConnectorSession session, long epochMicros, int picoOfMicroFraction)
     {
-        // This cast does treat TIMESTAMP as wall time in session TZ. This means that in order to get
-        // its UTC representation we need to shift the value by the offset of TZ.
-        long epochMillis = getChronology(session.getTimeZoneKey())
-                .getZone()
-                .convertLocalToUTC(scaleEpochMicrosToMillis(epochMicros), false);
+        long epochMillis = scaleEpochMicrosToMillis(epochMicros);
+
+        if (!session.isLegacyTimestamp()) {
+            // This cast does treat TIMESTAMP as wall time in session TZ. This means that in order to get
+            // its UTC representation we need to shift the value by the offset of TZ.
+            epochMillis = getChronology(session.getTimeZoneKey())
+                    .getZone()
+                    .convertLocalToUTC(scaleEpochMicrosToMillis(epochMicros), false);
+        }
 
         int picoOfMilliFraction = getMicrosOfMilli(epochMicros) * PICOSECONDS_PER_MICROSECOND + picoOfMicroFraction;
         return LongTimestampWithTimeZone.fromEpochMillisAndFraction(epochMillis, picoOfMilliFraction, session.getTimeZoneKey());

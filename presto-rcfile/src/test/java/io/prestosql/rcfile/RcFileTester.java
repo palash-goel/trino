@@ -61,6 +61,7 @@ import org.apache.hadoop.hive.serde2.columnar.LazyBinaryColumnarSerDe;
 import org.apache.hadoop.hive.serde2.io.DateWritableV2;
 import org.apache.hadoop.hive.serde2.io.HiveDecimalWritable;
 import org.apache.hadoop.hive.serde2.io.ShortWritable;
+import org.apache.hadoop.hive.serde2.io.TimestampWritable;
 import org.apache.hadoop.hive.serde2.io.TimestampWritableV2;
 import org.apache.hadoop.hive.serde2.lazy.LazyArray;
 import org.apache.hadoop.hive.serde2.lazy.LazyMap;
@@ -142,6 +143,7 @@ import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.StandardTypes.MAP;
+import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
@@ -842,12 +844,14 @@ public class RcFileTester
         else if (actualValue instanceof Text) {
             actualValue = actualValue.toString();
         }
-        else if (actualValue instanceof TimestampWritableV2) {
-            long millis = ((TimestampWritableV2) actualValue).getTimestamp().toEpochMilli();
-            if (format == Format.BINARY) {
-                millis = HIVE_STORAGE_TIME_ZONE.convertUTCToLocal(millis);
+        else if (actualValue instanceof TimestampWritable) {
+            TimestampWritable timestamp = (TimestampWritable) actualValue;
+            if (SESSION.isLegacyTimestamp()) {
+                actualValue = SqlTimestamp.legacyFromMillis(3, (timestamp.getSeconds() * 1000) + (timestamp.getNanos() / 1000000L), UTC_KEY);
             }
-            actualValue = sqlTimestampOf(3, millis);
+            else {
+                actualValue = SqlTimestamp.fromMillis(3, (timestamp.getSeconds() * 1000) + (timestamp.getNanos() / 1000000L));
+            }
         }
         else if (actualValue instanceof StructObject) {
             StructObject structObject = (StructObject) actualValue;

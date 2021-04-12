@@ -14,6 +14,7 @@
 package io.prestosql.type;
 
 import io.prestosql.spi.block.Block;
+import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.DateTimeEncoding;
 import io.prestosql.spi.type.LongTimeWithTimeZone;
 import io.prestosql.spi.type.LongTimestamp;
@@ -26,6 +27,7 @@ import io.prestosql.spi.type.TimestampWithTimeZoneType;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
@@ -232,7 +234,7 @@ public final class DateTimes
         return fraction.length();
     }
 
-    public static LocalDateTime toLocalDateTime(TimestampType type, Block block, int position)
+    public static LocalDateTime toLocalDateTime(TimestampType type, ConnectorSession session, Block block, int position)
     {
         int precision = type.getPrecision();
 
@@ -251,7 +253,33 @@ public final class DateTimes
         int nanoFraction = getMicrosOfSecond(epochMicros) * NANOSECONDS_PER_MICROSECOND + (int) (roundToNearest(picosOfMicro, PICOSECONDS_PER_NANOSECOND) / PICOSECONDS_PER_NANOSECOND);
 
         Instant instant = Instant.ofEpochSecond(epochSecond, nanoFraction);
+        if (session.isLegacyTimestamp()) {
+            return LocalDateTime.ofInstant(instant, session.getTimeZoneKey().getZoneId());
+        }
         return LocalDateTime.ofInstant(instant, UTC);
+    }
+
+    public static LocalTime toLocalTime(TimeType type, Block block, int position)
+    {
+        int precision = type.getPrecision();
+
+        long epochMicros;
+        int picosOfMicro = 0;
+        if (precision <= MAX_SHORT_PRECISION) {
+            epochMicros = type.getLong(block, position);
+        }
+        else {
+            LongTimestamp timestamp = (LongTimestamp) type.getObject(block, position);
+            epochMicros = timestamp.getEpochMicros();
+            picosOfMicro = timestamp.getPicosOfMicro();
+        }
+
+        long epochSecond = scaleEpochMicrosToSeconds(epochMicros);
+        int nanoFraction = getMicrosOfSecond(epochMicros) * NANOSECONDS_PER_MICROSECOND + (int) (roundToNearest(picosOfMicro, PICOSECONDS_PER_NANOSECOND) / PICOSECONDS_PER_NANOSECOND);
+
+        Instant instant = Instant.ofEpochSecond(epochSecond, nanoFraction);
+
+        return LocalTime.ofInstant(instant, UTC);
     }
 
     public static ZonedDateTime toZonedDateTime(TimestampWithTimeZoneType type, Block block, int position)
@@ -329,10 +357,19 @@ public final class DateTimes
     public static Object parseTimestamp(int precision, String value)
     {
         if (precision <= MAX_SHORT_PRECISION) {
-            return parseShortTimestamp(value);
+            return parseShortTimestamp(value, ZoneOffset.UTC);
         }
 
-        return parseLongTimestamp(value);
+        return parseLongTimestamp(value, ZoneOffset.UTC);
+    }
+
+    public static Object parseLegacyTimestamp(int precision, TimeZoneKey timeZoneKey, String value)
+    {
+        if (precision <= MAX_SHORT_PRECISION) {
+            return parseShortTimestamp(value, timeZoneKey.getZoneId());
+        }
+
+        return parseLongTimestamp(value, timeZoneKey.getZoneId());
     }
 
     public static Object parseTimestampWithTimeZone(int precision, String value)
@@ -344,7 +381,7 @@ public final class DateTimes
         return parseLongTimestampWithTimeZone(value);
     }
 
-    private static long parseShortTimestamp(String value)
+    private static long parseShortTimestamp(String value, ZoneId zoneId)
     {
         Matcher matcher = DATETIME_PATTERN.matcher(value);
         if (!matcher.matches() || matcher.group("timezone") != null) {
@@ -359,7 +396,7 @@ public final class DateTimes
         String second = matcher.group("second");
         String fraction = matcher.group("fraction");
 
-        long epochSecond = toEpochSecond(year, month, day, hour, minute, second, UTC);
+        long epochSecond = toEpochSecond(year, month, day, hour, minute, second, zoneId);
 
         int precision = 0;
         long fractionValue = 0;
@@ -376,7 +413,7 @@ public final class DateTimes
         return multiplyExact(epochSecond, MICROSECONDS_PER_SECOND) + rescale(fractionValue, precision, 6);
     }
 
-    private static LongTimestamp parseLongTimestamp(String value)
+    private static LongTimestamp parseLongTimestamp(String value, ZoneId zoneId)
     {
         Matcher matcher = DATETIME_PATTERN.matcher(value);
         if (!matcher.matches() || matcher.group("timezone") != null) {
@@ -396,7 +433,7 @@ public final class DateTimes
         }
 
         int precision = fraction.length();
-        long epochSecond = toEpochSecond(year, month, day, hour, minute, second, UTC);
+        long epochSecond = toEpochSecond(year, month, day, hour, minute, second, zoneId);
         long picoFraction = rescale(Long.parseLong(fraction), precision, 12);
 
         return longTimestamp(epochSecond, picoFraction);

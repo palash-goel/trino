@@ -39,6 +39,7 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.PageBuilderStatus;
 import io.prestosql.spi.connector.ConnectorPageSource;
+import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.StandardTypes;
@@ -89,6 +90,7 @@ public class ScanQueryPageSource
 
     public ScanQueryPageSource(
             ElasticsearchClient client,
+            ConnectorSession session,
             ElasticsearchTableHandle table,
             ElasticsearchSplit split,
             List<ElasticsearchColumnHandle> columns)
@@ -136,7 +138,7 @@ public class ScanQueryPageSource
         SearchResponse searchResponse = client.beginSearch(
                 split.getIndex(),
                 split.getShard(),
-                buildSearchQuery(table.getConstraint().transform(ElasticsearchColumnHandle.class::cast), table.getQuery()),
+                buildSearchQuery(session, table.getConstraint().transform(ElasticsearchColumnHandle.class::cast), table.getQuery()),
                 needAllFields ? Optional.empty() : Optional.of(requiredFields),
                 documentFields,
                 sort,

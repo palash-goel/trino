@@ -23,6 +23,7 @@ import org.testng.annotations.Test;
 
 import java.util.concurrent.TimeUnit;
 
+import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DateType.DATE;
@@ -58,7 +59,7 @@ public class TestDateTimeOperators
         assertFunction(
                 "TIMESTAMP '2013-03-31 00:05' + INTERVAL '1' hour",
                 createTimestampType(3),
-                sqlTimestampOf(3, 2013, 3, 31, 1, 5, 0, 0));
+                sqlTimestampOf(3, 2013, 3, 31, 1, 5, 0, 0, TEST_SESSION));
         session.toConnectorSession();
         assertFunction(
                 "TIMESTAMP '2013-03-31 00:05' + INTERVAL '2' hour",

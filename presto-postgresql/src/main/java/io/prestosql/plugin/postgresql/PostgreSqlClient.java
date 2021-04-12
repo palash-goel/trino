@@ -87,6 +87,7 @@ import java.sql.Types;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -110,6 +111,7 @@ import static io.prestosql.plugin.jdbc.DecimalSessionSessionProperties.getDecima
 import static io.prestosql.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRoundingMode;
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.decimalColumnMapping;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.fromPrestoLegacyTimestamp;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.fromPrestoTimestamp;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.timeColumnMappingWithTruncation;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.timeWriteFunction;
@@ -359,15 +361,15 @@ public class PostgreSqlClient
         if (typeHandle.getJdbcType() == Types.TIME) {
             // When inserting a time such as 12:34:56.999, Postgres returns 12:34:56.999999999. If we use rounding semantics, the time turns into 00:00:00.000 when
             // reading it back into a time(3). Hence, truncate instead
-            return Optional.of(timeColumnMappingWithTruncation());
+            return Optional.of(timeColumnMappingWithTruncation(session));
         }
         if (typeHandle.getJdbcType() == Types.TIMESTAMP) {
             int decimalDigits = typeHandle.getDecimalDigits().orElseThrow(() -> new IllegalStateException("decimal digits not present"));
             TimestampType timestampType = createTimestampType(decimalDigits);
             return Optional.of(ColumnMapping.longMapping(
                     timestampType,
-                    timestampReadFunction(timestampType),
-                    timestampWriteFunction(timestampType)));
+                    timestampReadFunction(session, timestampType),
+                    timestampWriteFunction(session, timestampType)));
         }
         if (typeHandle.getJdbcType() == Types.NUMERIC && getDecimalRounding(session) == ALLOW_OVERFLOW) {
             if (typeHandle.getColumnSize() == 131089) {
@@ -442,11 +444,11 @@ public class PostgreSqlClient
             return WriteMapping.sliceMapping("bytea", varbinaryWriteFunction());
         }
         if (TIME.equals(type)) {
-            return WriteMapping.longMapping("time", timeWriteFunction());
+            return WriteMapping.longMapping("time", timeWriteFunction(session));
         }
         if (type instanceof TimestampType && ((TimestampType) type).getPrecision() <= MAX_SUPPORTED_TIMESTAMP_PRECISION) {
             TimestampType timestampType = (TimestampType) type;
-            return WriteMapping.longMapping(format("timestamp(%s)", timestampType.getPrecision()), timestampWriteFunction(timestampType));
+            return WriteMapping.longMapping(format("timestamp(%s)", timestampType.getPrecision()), timestampWriteFunction(session, timestampType));
         }
         if (type instanceof TimestampWithTimeZoneType && ((TimestampWithTimeZoneType) type).getPrecision() <= MAX_SUPPORTED_TIMESTAMP_PRECISION) {
             int precision = ((TimestampWithTimeZoneType) type).getPrecision();
@@ -502,10 +504,14 @@ public class PostgreSqlClient
     // When writing with setObject() using LocalDateTime, driver converts the value to string representing date-time in JVM zone,
     // therefore cannot represent local date-time which is a "gap" in this zone.
     // TODO replace this method with StandardColumnMappings#timestampWriteFunction when https://github.com/pgjdbc/pgjdbc/issues/1390 is done
-    private static LongWriteFunction timestampWriteFunction(TimestampType timestampType)
+    private static LongWriteFunction timestampWriteFunction(ConnectorSession session, TimestampType timestampType)
     {
+        ZoneId sessionZone = ZoneId.of(session.getTimeZoneKey().getId());
+        boolean legacyTimestamp = session.isLegacyTimestamp();
         return (statement, index, value) -> {
-            LocalDateTime localDateTime = fromPrestoTimestamp(value);
+            LocalDateTime localDateTime = legacyTimestamp
+                    ? fromPrestoLegacyTimestamp(value, sessionZone)
+                    : fromPrestoTimestamp(value);
             statement.setObject(index, toPgTimestamp(localDateTime));
         };
     }

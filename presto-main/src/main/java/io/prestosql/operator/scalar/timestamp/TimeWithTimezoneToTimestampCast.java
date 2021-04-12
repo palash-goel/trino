@@ -104,6 +104,10 @@ public final class TimeWithTimezoneToTimestampCast
 
     private static long calculateEpochMicros(ConnectorSession session, long picos)
     {
+        if (session.isLegacyTimestamp()) {
+            return rescale(picos, 12, 6);
+        }
+
         // TODO: consider using something more efficient than LocalDate.ofInstant() to compute epochDay
         long epochDay = LocalDate.ofInstant(session.getStart(), session.getTimeZoneKey().getZoneId())
                 .toEpochDay();

@@ -40,7 +40,6 @@ import io.prestosql.sql.tree.QualifiedName;
 import java.lang.invoke.MethodHandle;
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalTime;
 import java.util.IllegalFormatException;
 import java.util.List;
 import java.util.Optional;
@@ -65,11 +64,10 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.Timestamps.roundDiv;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.type.DateTimes.PICOSECONDS_PER_NANOSECOND;
 import static io.prestosql.type.DateTimes.toLocalDateTime;
+import static io.prestosql.type.DateTimes.toLocalTime;
 import static io.prestosql.type.DateTimes.toZonedDateTime;
 import static io.prestosql.type.JsonType.JSON;
 import static io.prestosql.type.UnknownType.UNKNOWN;
@@ -209,10 +207,10 @@ public final class FormatFunction
             return (session, block) -> toZonedDateTime(((TimestampWithTimeZoneType) type), block, position);
         }
         if (type instanceof TimestampType) {
-            return (session, block) -> toLocalDateTime(((TimestampType) type), block, position);
+            return (session, block) -> toLocalDateTime(((TimestampType) type), session, block, position);
         }
         if (type instanceof TimeType) {
-            return (session, block) -> toLocalTime(type.getLong(block, position));
+            return (session, block) -> toLocalTime(((TimeType) type), block, position);
         }
         // TODO: support TIME WITH TIME ZONE by https://github.com/prestosql/presto/issues/191 + mapping to java.time.OffsetTime
         if (type.equals(JSON)) {
@@ -254,12 +252,6 @@ public final class FormatFunction
 
         MethodHandle handle = functionDependencies.getCastInvoker(type, VARCHAR, Optional.empty()).getMethodHandle();
         return (session, block) -> convertToString(handle, function.apply(session, block));
-    }
-
-    private static LocalTime toLocalTime(long value)
-    {
-        long nanoOfDay = roundDiv(value, PICOSECONDS_PER_NANOSECOND);
-        return LocalTime.ofNanoOfDay(nanoOfDay);
     }
 
     private static Object convertToString(MethodHandle handle, Object value)

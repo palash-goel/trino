@@ -45,6 +45,7 @@ import java.time.ZonedDateTime;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
+import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.operator.scalar.DateTimeFunctions.currentDate;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -214,11 +215,11 @@ public class TestDateTimeFunctions
     {
         DateTime dateTime = new DateTime(2001, 1, 22, 3, 4, 5, 0, DATE_TIME_ZONE);
         double seconds = dateTime.getMillis() / 1000.0;
-        assertFunction("from_unixtime(" + seconds + ")", TIMESTAMP_MILLIS, sqlTimestampOf(dateTime));
+        assertFunction("from_unixtime(" + seconds + ")", TIMESTAMP_MILLIS, sqlTimestampOf(dateTime, TEST_SESSION));
 
         dateTime = new DateTime(2001, 1, 22, 3, 4, 5, 888, DATE_TIME_ZONE);
         seconds = dateTime.getMillis() / 1000.0;
-        assertFunction("from_unixtime(" + seconds + ")", TIMESTAMP_MILLIS, sqlTimestampOf(dateTime));
+        assertFunction("from_unixtime(" + seconds + ")", TIMESTAMP_MILLIS, sqlTimestampOf(dateTime, TEST_SESSION));
     }
 
     @Test
@@ -553,28 +554,28 @@ public class TestDateTimeFunctions
     {
         DateTime result = TIMESTAMP;
         result = result.withMillisOfSecond(0);
-        assertFunction("date_trunc('second', " + TIMESTAMP_LITERAL + ")", TIMESTAMP_MILLIS, sqlTimestampOf(result));
+        assertFunction("date_trunc('second', " + TIMESTAMP_LITERAL + ")", TIMESTAMP_MILLIS, sqlTimestampOf(result, TEST_SESSION));
 
         result = result.withSecondOfMinute(0);
-        assertFunction("date_trunc('minute', " + TIMESTAMP_LITERAL + ")", TIMESTAMP_MILLIS, sqlTimestampOf(result));
+        assertFunction("date_trunc('minute', " + TIMESTAMP_LITERAL + ")", TIMESTAMP_MILLIS, sqlTimestampOf(result, TEST_SESSION));
 
         result = result.withMinuteOfHour(0);
-        assertFunction("date_trunc('hour', " + TIMESTAMP_LITERAL + ")", TIMESTAMP_MILLIS, sqlTimestampOf(result));
+        assertFunction("date_trunc('hour', " + TIMESTAMP_LITERAL + ")", TIMESTAMP_MILLIS, sqlTimestampOf(result, TEST_SESSION));
 
         result = result.withHourOfDay(0);
-        assertFunction("date_trunc('day', " + TIMESTAMP_LITERAL + ")", TIMESTAMP_MILLIS, sqlTimestampOf(result));
+        assertFunction("date_trunc('day', " + TIMESTAMP_LITERAL + ")", TIMESTAMP_MILLIS, sqlTimestampOf(result, TEST_SESSION));
 
         result = result.withDayOfMonth(20);
-        assertFunction("date_trunc('week', " + TIMESTAMP_LITERAL + ")", TIMESTAMP_MILLIS, sqlTimestampOf(result));
+        assertFunction("date_trunc('week', " + TIMESTAMP_LITERAL + ")", TIMESTAMP_MILLIS, sqlTimestampOf(result, TEST_SESSION));
 
         result = result.withDayOfMonth(1);
-        assertFunction("date_trunc('month', " + TIMESTAMP_LITERAL + ")", TIMESTAMP_MILLIS, sqlTimestampOf(result));
+        assertFunction("date_trunc('month', " + TIMESTAMP_LITERAL + ")", TIMESTAMP_MILLIS, sqlTimestampOf(result, TEST_SESSION));
 
         result = result.withMonthOfYear(7);
-        assertFunction("date_trunc('quarter', " + TIMESTAMP_LITERAL + ")", TIMESTAMP_MILLIS, sqlTimestampOf(result));
+        assertFunction("date_trunc('quarter', " + TIMESTAMP_LITERAL + ")", TIMESTAMP_MILLIS, sqlTimestampOf(result, TEST_SESSION));
 
         result = result.withMonthOfYear(1);
-        assertFunction("date_trunc('year', " + TIMESTAMP_LITERAL + ")", TIMESTAMP_MILLIS, sqlTimestampOf(result));
+        assertFunction("date_trunc('year', " + TIMESTAMP_LITERAL + ")", TIMESTAMP_MILLIS, sqlTimestampOf(result, TEST_SESSION));
 
         result = WEIRD_TIMESTAMP;
         result = result.withMillisOfSecond(0);
@@ -638,18 +639,18 @@ public class TestDateTimeFunctions
     @Test
     public void testAddFieldToTimestamp()
     {
-        assertFunction("date_add('millisecond', 3, " + TIMESTAMP_LITERAL + ")", TIMESTAMP_MILLIS, sqlTimestampOf(TIMESTAMP.plusMillis(3)));
-        assertFunction("date_add('second', 3, " + TIMESTAMP_LITERAL + ")", TIMESTAMP_MILLIS, sqlTimestampOf(TIMESTAMP.plusSeconds(3)));
-        assertFunction("date_add('minute', 3, " + TIMESTAMP_LITERAL + ")", TIMESTAMP_MILLIS, sqlTimestampOf(TIMESTAMP.plusMinutes(3)));
-        assertFunction("date_add('hour', 3, " + TIMESTAMP_LITERAL + ")", TIMESTAMP_MILLIS, sqlTimestampOf(TIMESTAMP.plusHours(3)));
-        assertFunction("date_add('hour', 23, " + TIMESTAMP_LITERAL + ")", TIMESTAMP_MILLIS, sqlTimestampOf(TIMESTAMP.plusHours(23)));
-        assertFunction("date_add('hour', -4, " + TIMESTAMP_LITERAL + ")", TIMESTAMP_MILLIS, sqlTimestampOf(TIMESTAMP.minusHours(4)));
-        assertFunction("date_add('hour', -23, " + TIMESTAMP_LITERAL + ")", TIMESTAMP_MILLIS, sqlTimestampOf(TIMESTAMP.minusHours(23)));
-        assertFunction("date_add('day', 3, " + TIMESTAMP_LITERAL + ")", TIMESTAMP_MILLIS, sqlTimestampOf(TIMESTAMP.plusDays(3)));
-        assertFunction("date_add('week', 3, " + TIMESTAMP_LITERAL + ")", TIMESTAMP_MILLIS, sqlTimestampOf(TIMESTAMP.plusWeeks(3)));
-        assertFunction("date_add('month', 3, " + TIMESTAMP_LITERAL + ")", TIMESTAMP_MILLIS, sqlTimestampOf(TIMESTAMP.plusMonths(3)));
-        assertFunction("date_add('quarter', 3, " + TIMESTAMP_LITERAL + ")", TIMESTAMP_MILLIS, sqlTimestampOf(TIMESTAMP.plusMonths(3 * 3)));
-        assertFunction("date_add('year', 3, " + TIMESTAMP_LITERAL + ")", TIMESTAMP_MILLIS, sqlTimestampOf(TIMESTAMP.plusYears(3)));
+        assertFunction("date_add('millisecond', 3, " + TIMESTAMP_LITERAL + ")", TIMESTAMP_MILLIS, sqlTimestampOf(TIMESTAMP.plusMillis(3), TEST_SESSION));
+        assertFunction("date_add('second', 3, " + TIMESTAMP_LITERAL + ")", TIMESTAMP_MILLIS, sqlTimestampOf(TIMESTAMP.plusSeconds(3), TEST_SESSION));
+        assertFunction("date_add('minute', 3, " + TIMESTAMP_LITERAL + ")", TIMESTAMP_MILLIS, sqlTimestampOf(TIMESTAMP.plusMinutes(3), TEST_SESSION));
+        assertFunction("date_add('hour', 3, " + TIMESTAMP_LITERAL + ")", TIMESTAMP_MILLIS, sqlTimestampOf(TIMESTAMP.plusHours(3), TEST_SESSION));
+        assertFunction("date_add('hour', 23, " + TIMESTAMP_LITERAL + ")", TIMESTAMP_MILLIS, sqlTimestampOf(TIMESTAMP.plusHours(23), TEST_SESSION));
+        assertFunction("date_add('hour', -4, " + TIMESTAMP_LITERAL + ")", TIMESTAMP_MILLIS, sqlTimestampOf(TIMESTAMP.minusHours(4), TEST_SESSION));
+        assertFunction("date_add('hour', -23, " + TIMESTAMP_LITERAL + ")", TIMESTAMP_MILLIS, sqlTimestampOf(TIMESTAMP.minusHours(23), TEST_SESSION));
+        assertFunction("date_add('day', 3, " + TIMESTAMP_LITERAL + ")", TIMESTAMP_MILLIS, sqlTimestampOf(TIMESTAMP.plusDays(3), TEST_SESSION));
+        assertFunction("date_add('week', 3, " + TIMESTAMP_LITERAL + ")", TIMESTAMP_MILLIS, sqlTimestampOf(TIMESTAMP.plusWeeks(3), TEST_SESSION));
+        assertFunction("date_add('month', 3, " + TIMESTAMP_LITERAL + ")", TIMESTAMP_MILLIS, sqlTimestampOf(TIMESTAMP.plusMonths(3), TEST_SESSION));
+        assertFunction("date_add('quarter', 3, " + TIMESTAMP_LITERAL + ")", TIMESTAMP_MILLIS, sqlTimestampOf(TIMESTAMP.plusMonths(3 * 3), TEST_SESSION));
+        assertFunction("date_add('year', 3, " + TIMESTAMP_LITERAL + ")", TIMESTAMP_MILLIS, sqlTimestampOf(TIMESTAMP.plusYears(3), TEST_SESSION));
 
         assertFunction("date_add('millisecond', 3, " + WEIRD_TIMESTAMP_LITERAL + ")", TIMESTAMP_WITH_TIME_ZONE, toTimestampWithTimeZone(WEIRD_TIMESTAMP.plusMillis(3)));
         assertFunction("date_add('second', 3, " + WEIRD_TIMESTAMP_LITERAL + ")", TIMESTAMP_WITH_TIME_ZONE, toTimestampWithTimeZone(WEIRD_TIMESTAMP.plusSeconds(3)));
@@ -888,67 +889,67 @@ public class TestDateTimeFunctions
     {
         assertFunction("date_parse('2013', '%Y')",
                 TIMESTAMP_MILLIS,
-                sqlTimestampOf(3, 2013, 1, 1, 0, 0, 0, 0));
+                sqlTimestampOf(3, 2013, 1, 1, 0, 0, 0, 0, TEST_SESSION));
         assertFunction("date_parse('2013-05', '%Y-%m')",
                 TIMESTAMP_MILLIS,
-                sqlTimestampOf(3, 2013, 5, 1, 0, 0, 0, 0));
+                sqlTimestampOf(3, 2013, 5, 1, 0, 0, 0, 0, TEST_SESSION));
         assertFunction("date_parse('2013-05-17', '%Y-%m-%d')",
                 TIMESTAMP_MILLIS,
-                sqlTimestampOf(3, 2013, 5, 17, 0, 0, 0, 0));
+                sqlTimestampOf(3, 2013, 5, 17, 0, 0, 0, 0, TEST_SESSION));
         assertFunction("date_parse('2013-05-17 12:35:10', '%Y-%m-%d %h:%i:%s')",
                 TIMESTAMP_MILLIS,
-                sqlTimestampOf(3, 2013, 5, 17, 0, 35, 10, 0));
+                sqlTimestampOf(3, 2013, 5, 17, 0, 35, 10, 0, TEST_SESSION));
         assertFunction("date_parse('2013-05-17 12:35:10 PM', '%Y-%m-%d %h:%i:%s %p')",
                 TIMESTAMP_MILLIS,
-                sqlTimestampOf(3, 2013, 5, 17, 12, 35, 10, 0));
+                sqlTimestampOf(3, 2013, 5, 17, 12, 35, 10, 0, TEST_SESSION));
         assertFunction("date_parse('2013-05-17 12:35:10 AM', '%Y-%m-%d %h:%i:%s %p')",
                 TIMESTAMP_MILLIS,
-                sqlTimestampOf(3, 2013, 5, 17, 0, 35, 10, 0));
+                sqlTimestampOf(3, 2013, 5, 17, 0, 35, 10, 0, TEST_SESSION));
 
         assertFunction("date_parse('2013-05-17 00:35:10', '%Y-%m-%d %H:%i:%s')",
                 TIMESTAMP_MILLIS,
-                sqlTimestampOf(3, 2013, 5, 17, 0, 35, 10, 0));
+                sqlTimestampOf(3, 2013, 5, 17, 0, 35, 10, 0, TEST_SESSION));
         assertFunction("date_parse('2013-05-17 23:35:10', '%Y-%m-%d %H:%i:%s')",
                 TIMESTAMP_MILLIS,
-                sqlTimestampOf(3, 2013, 5, 17, 23, 35, 10, 0));
+                sqlTimestampOf(3, 2013, 5, 17, 23, 35, 10, 0, TEST_SESSION));
         assertFunction("date_parse('abc 2013-05-17 fff 23:35:10 xyz', 'abc %Y-%m-%d fff %H:%i:%s xyz')",
                 TIMESTAMP_MILLIS,
-                sqlTimestampOf(3, 2013, 5, 17, 23, 35, 10, 0));
+                sqlTimestampOf(3, 2013, 5, 17, 23, 35, 10, 0, TEST_SESSION));
 
         assertFunction("date_parse('2013 14', '%Y %y')",
                 TIMESTAMP_MILLIS,
-                sqlTimestampOf(3, 2014, 1, 1, 0, 0, 0, 0));
+                sqlTimestampOf(3, 2014, 1, 1, 0, 0, 0, 0, TEST_SESSION));
 
         assertFunction("date_parse('1998 53', '%x %v')",
                 TIMESTAMP_MILLIS,
-                sqlTimestampOf(3, 1998, 12, 28, 0, 0, 0, 0));
+                sqlTimestampOf(3, 1998, 12, 28, 0, 0, 0, 0, TEST_SESSION));
 
         assertFunction("date_parse('1.1', '%s.%f')",
                 TIMESTAMP_MILLIS,
-                sqlTimestampOf(3, 1970, 1, 1, 0, 0, 1, 100));
+                sqlTimestampOf(3, 1970, 1, 1, 0, 0, 1, 100, TEST_SESSION));
         assertFunction("date_parse('1.01', '%s.%f')",
                 TIMESTAMP_MILLIS,
-                sqlTimestampOf(3, 1970, 1, 1, 0, 0, 1, 10));
+                sqlTimestampOf(3, 1970, 1, 1, 0, 0, 1, 10, TEST_SESSION));
         assertFunction("date_parse('1.2006', '%s.%f')",
                 TIMESTAMP_MILLIS,
-                sqlTimestampOf(3, 1970, 1, 1, 0, 0, 1, 200));
+                sqlTimestampOf(3, 1970, 1, 1, 0, 0, 1, 200, TEST_SESSION));
         assertFunction("date_parse('59.123456789', '%s.%f')",
                 TIMESTAMP_MILLIS,
-                sqlTimestampOf(3, 1970, 1, 1, 0, 0, 59, 123));
+                sqlTimestampOf(3, 1970, 1, 1, 0, 0, 59, 123, TEST_SESSION));
 
         assertFunction("date_parse('0', '%k')",
                 TIMESTAMP_MILLIS,
-                sqlTimestampOf(3, 1970, 1, 1, 0, 0, 0, 0));
+                sqlTimestampOf(3, 1970, 1, 1, 0, 0, 0, 0, TEST_SESSION));
 
         assertFunction("date_parse('28-JAN-16 11.45.46.421000 PM','%d-%b-%y %l.%i.%s.%f %p')",
                 TIMESTAMP_MILLIS,
-                sqlTimestampOf(3, 2016, 1, 28, 23, 45, 46, 421));
+                sqlTimestampOf(3, 2016, 1, 28, 23, 45, 46, 421, TEST_SESSION));
         assertFunction("date_parse('11-DEC-70 11.12.13.456000 AM','%d-%b-%y %l.%i.%s.%f %p')",
                 TIMESTAMP_MILLIS,
-                sqlTimestampOf(3, 1970, 12, 11, 11, 12, 13, 456));
+                sqlTimestampOf(3, 1970, 12, 11, 11, 12, 13, 456, TEST_SESSION));
         assertFunction("date_parse('31-MAY-69 04.59.59.999000 AM','%d-%b-%y %l.%i.%s.%f %p')",
                 TIMESTAMP_MILLIS,
-                sqlTimestampOf(3, 2069, 5, 31, 4, 59, 59, 999));
+                sqlTimestampOf(3, 2069, 5, 31, 4, 59, 59, 999, TEST_SESSION));
 
         assertInvalidFunction("date_parse('', '%D')", "%D not supported in date format string");
         assertInvalidFunction("date_parse('', '%U')", "%U not supported in date format string");
@@ -988,10 +989,10 @@ public class TestDateTimeFunctions
 
             localeAssertions.assertFunction("date_parse('2013-05-17 12:35:10 오후', '%Y-%m-%d %h:%i:%s %p')",
                     TIMESTAMP_MILLIS,
-                    sqlTimestampOf(3, 2013, 5, 17, 12, 35, 10, 0));
+                    sqlTimestampOf(3, 2013, 5, 17, 12, 35, 10, 0, TEST_SESSION));
             localeAssertions.assertFunction("date_parse('2013-05-17 12:35:10 오전', '%Y-%m-%d %h:%i:%s %p')",
                     TIMESTAMP_MILLIS,
-                    sqlTimestampOf(3, 2013, 5, 17, 0, 35, 10, 0));
+                    sqlTimestampOf(3, 2013, 5, 17, 0, 35, 10, 0, TEST_SESSION));
 
             localeAssertions.assertFunction("parse_datetime('2013-05-17 12:35:10 오후', 'yyyy-MM-dd hh:mm:ss a')",
                     TIMESTAMP_WITH_TIME_ZONE,

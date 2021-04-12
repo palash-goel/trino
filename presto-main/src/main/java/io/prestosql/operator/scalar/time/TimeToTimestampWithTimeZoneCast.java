@@ -93,7 +93,10 @@ public final class TimeToTimestampWithTimeZoneCast
     {
         long milliFraction = rescale(picoFraction, TimeType.MAX_PRECISION, 3);
         long epochMillis = multiplyExact(epochSeconds, MILLISECONDS_PER_SECOND) + milliFraction;
-        epochMillis -= zoneId.getRules().getOffset(session.getStart()).getTotalSeconds() * MILLISECONDS_PER_SECOND;
+
+        if (!session.isLegacyTimestamp()) {
+            epochMillis -= zoneId.getRules().getOffset(session.getStart()).getTotalSeconds() * MILLISECONDS_PER_SECOND;
+        }
         return epochMillis;
     }
 }
