@@ -21,7 +21,10 @@ import io.trino.spi.security.Identity;
 
 import javax.ws.rs.container.ContainerRequestContext;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
 import static java.lang.String.format;
@@ -31,10 +34,17 @@ public abstract class AbstractBearerAuthenticator
         implements Authenticator
 {
     private final String principalField;
+    private final String groupField;
     private final UserMapping userMapping;
 
     protected AbstractBearerAuthenticator(String principalField, UserMapping userMapping)
     {
+        this(principalField, "", userMapping);
+    }
+
+    protected AbstractBearerAuthenticator(String principalField, String groupField, UserMapping userMapping)
+    {
+        this.groupField = requireNonNull(groupField, "groupField is null");
         this.principalField = requireNonNull(principalField, "principalField is null");
         this.userMapping = requireNonNull(userMapping, "userMapping is null");
     }
@@ -46,18 +56,21 @@ public abstract class AbstractBearerAuthenticator
         return authenticate(request, extractToken(request));
     }
 
+    @SuppressWarnings("unchecked")
     public Identity authenticate(ContainerRequestContext request, String token)
             throws AuthenticationException
     {
         try {
             Jws<Claims> claimsJws = parseClaimsJws(token);
             String principal = claimsJws.getBody().get(principalField, String.class);
+            Set<String> groups = Set.copyOf(Optional.ofNullable(claimsJws.getBody()).map(v -> v.get(groupField, List.class)).orElse(Collections.emptyList()));
             if (principal == null) {
                 throw needAuthentication(request, "Invalid credentials");
             }
             String authenticatedUser = userMapping.mapUser(principal);
             return Identity.forUser(authenticatedUser)
                     .withPrincipal(new BasicPrincipal(principal))
+                    .withGroups(groups)
                     .build();
         }
         catch (JwtException | UserMappingException e) {
