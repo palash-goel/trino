@@ -28,6 +28,7 @@ import io.jsonwebtoken.JwsHeader;
 import io.jsonwebtoken.JwtBuilder;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
+import io.trino.Session;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
 import io.trino.security.AccessControl;
 import io.trino.security.AccessControlManager;
@@ -87,6 +88,7 @@ import static io.trino.server.security.oauth2.OAuth2Service.NONCE;
 import static io.trino.server.security.oauth2.OAuth2Service.hashNonce;
 import static io.trino.spi.security.AccessDeniedException.denyImpersonateUser;
 import static io.trino.spi.security.AccessDeniedException.denyReadSystemInformationAccess;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -125,6 +127,11 @@ public class TestResourceSecurity
     private static final String HMAC_KEY = Resources.getResource("hmac_key.txt").getPath();
     private static final PrivateKey JWK_PRIVATE_KEY;
     private static final ObjectMapper json = new ObjectMapper();
+
+    private static final Session SESSION = testSessionBuilder()
+            .setCatalog("redis")
+            .setSchema("default")
+            .build();
 
     static {
         try {
